@@ -1,0 +1,5 @@
+[install]
+registry = "https://registry.npmmirror.com"
+
+[install.cache]
+registry = "https://registry.npmmirror.com"

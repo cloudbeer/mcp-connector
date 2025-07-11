@@ -1,0 +1,432 @@
+### MCP Connector API Tests
+### Base URL: http://localhost:8000
+
+### Variables
+@baseUrl = http://localhost:8000
+@adminKey = ak-130984-tdU8Rs604uqVmx-N-c2A3A
+@assistantKey = ak-130984-5_oHlqm-iyeZFPFPEiWlZQ
+
+### Health Check
+GET {{baseUrl}}/api/v1/health
+
+### Detailed Health Check
+GET {{baseUrl}}/api/v1/health/detailed
+
+### Root Endpoint
+GET {{baseUrl}}/
+
+### ========== API Key Management ==========
+
+### List All API Keys (Admin Required)
+GET {{baseUrl}}/api/v1/api-keys
+Authorization: Bearer {{adminKey}}
+
+### List API Keys Including Disabled
+GET {{baseUrl}}/api/v1/api-keys?include_disabled=true
+Authorization: Bearer {{adminKey}}
+
+### Get Specific API Key
+GET {{baseUrl}}/api/v1/api-keys/1
+Authorization: Bearer {{adminKey}}
+
+### Get My Key Info (Any Key)
+GET {{baseUrl}}/api/v1/my-key
+Authorization: Bearer {{assistantKey}}
+
+### Get My Accessible Assistants
+GET {{baseUrl}}/api/v1/my-assistants
+Authorization: Bearer {{assistantKey}}
+
+### Create New API Key - Management Key
+POST {{baseUrl}}/api/v1/api-keys
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+  "name": "Development Management Key",
+  "can_manage": true,
+  "can_call_assistant": true,
+  "is_disabled": false,
+  "created_by": "admin",
+  "expires_at": null,
+  "assistant_ids": [1, 2]
+}
+
+### Create New API Key - Assistant Only Key
+POST {{baseUrl}}/api/v1/api-keys
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+  "name": "Assistant Only Key",
+  "can_manage": false,
+  "can_call_assistant": true,
+  "is_disabled": false,
+  "assistant_ids": [1]
+}
+
+### Create New API Key - Read Only Key
+POST {{baseUrl}}/api/v1/api-keys
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+  "name": "Read Only Key",
+  "can_manage": false,
+  "can_call_assistant": false,
+  "is_disabled": false,
+  "expires_at": "2025-12-31T23:59:59",
+  "assistant_ids": []
+}
+
+### Update API Key
+PUT {{baseUrl}}/api/v1/api-keys/3
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+  "name": "Updated Development Key",
+  "can_manage": true,
+  "can_call_assistant": true,
+  "is_disabled": false,
+  "assistant_ids": [1, 2]
+}
+
+### Disable API Key
+PUT {{baseUrl}}/api/v1/api-keys/4
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+  "is_disabled": true
+}
+
+### Get API Key Assistants
+GET {{baseUrl}}/api/v1/api-keys/1/assistants
+Authorization: Bearer {{adminKey}}
+
+### Bind Assistant to API Key
+POST {{baseUrl}}/api/v1/api-keys/2/assistants/1
+Authorization: Bearer {{adminKey}}
+
+### Unbind Assistant from API Key
+DELETE {{baseUrl}}/api/v1/api-keys/2/assistants/1
+Authorization: Bearer {{adminKey}}
+
+### Get API Key Usage Statistics
+GET {{baseUrl}}/api/v1/api-keys/1/stats?days=30
+Authorization: Bearer {{adminKey}}
+
+### Get API Key Usage Logs
+GET {{baseUrl}}/api/v1/api-keys/1/logs?limit=50&offset=0
+Authorization: Bearer {{adminKey}}
+
+### Delete API Key
+DELETE {{baseUrl}}/api/v1/api-keys/5
+Authorization: Bearer {{adminKey}}
+
+### ========== Permission Tests ==========
+
+### Try to access admin endpoint with assistant key (should fail)
+GET {{baseUrl}}/api/v1/api-keys
+Authorization: Bearer {{assistantKey}}
+
+### Try to create API key with assistant key (should fail)
+POST {{baseUrl}}/api/v1/api-keys
+Authorization: Bearer {{assistantKey}}
+Content-Type: application/json
+
+{
+  "name": "Unauthorized Key",
+  "can_manage": false,
+  "can_call_assistant": true
+}
+
+### Try to access without API key (should fail)
+GET {{baseUrl}}/api/v1/api-keys
+
+### ========== Server Group Management ==========
+
+### List Server Groups
+GET {{baseUrl}}/api/v1/groups
+
+### Create Server Group - AWS Tools
+POST {{baseUrl}}/api/v1/groups
+Content-Type: application/json
+
+{
+  "name": "aws-tools",
+  "description": "AWS related MCP tools",
+  "max_tools": 5
+}
+
+### Create Server Group - Development Tools
+POST {{baseUrl}}/api/v1/groups
+Content-Type: application/json
+
+{
+  "name": "dev-tools", 
+  "description": "Development and utility tools",
+  "max_tools": 8
+}
+
+### ========== MCP Tool Management ==========
+
+### Create MCP Tool - Fetch Server
+POST {{baseUrl}}/api/v1/tools
+Content-Type: application/json
+
+{
+  "name": "fetch-v2",
+  "description": "Web content fetching tool using mcp-server-fetch",
+  "connection_type": "stdio",
+  "group_id": 1,
+  "command": "uvx",
+  "args": ["mcp-server-fetch"],
+  "env": {},
+  "timeout": 30,
+  "retry_count": 3,
+  "retry_delay": 5,
+  "disabled": false,
+  "auto_approve": [],
+  "enabled": true
+}
+
+### Create MCP Tool - AWS Documentation
+POST {{baseUrl}}/api/v1/tools
+Content-Type: application/json
+
+{
+  "name": "aws-documentation-v2",
+  "description": "AWS documentation search and retrieval tool",
+  "connection_type": "stdio",
+  "group_id": 2,
+  "command": "docker",
+  "args": [
+    "run",
+    "--rm",
+    "--interactive",
+    "--env",
+    "FASTMCP_LOG_LEVEL=ERROR",
+    "mcp/aws-documentation"
+  ],
+  "env": {
+    "FASTMCP_LOG_LEVEL": "ERROR"
+  },
+  "timeout": 60,
+  "retry_count": 2,
+  "retry_delay": 10,
+  "disabled": false,
+  "auto_approve": [],
+  "enabled": true
+}
+
+### Create MCP Tool - Weather Service
+POST {{baseUrl}}/api/v1/tools
+Content-Type: application/json
+
+{
+  "name": "weather-v2",
+  "description": "Weather information service using AccuWeather API",
+  "connection_type": "stdio",
+  "group_id": 1,
+  "command": "npx",
+  "args": ["-y", "@timlukahorstmann/mcp-weather"],
+  "env": {
+    "ACCUWEATHER_API_KEY": "your_api_key_here"
+  },
+  "timeout": 30,
+  "retry_count": 3,
+  "retry_delay": 5,
+  "disabled": false,
+  "auto_approve": ["get_weather", "get_forecast"],
+  "enabled": true
+}
+
+### Create MCP Tool - File System Operations
+POST {{baseUrl}}/api/v1/tools
+Content-Type: application/json
+
+{
+  "name": "filesystem-v2",
+  "description": "File system operations and management",
+  "connection_type": "stdio",
+  "group_id": 2,
+  "command": "uvx",
+  "args": ["mcp-server-filesystem", "--base-directory", "/tmp"],
+  "env": {
+    "MCP_FS_BASE_DIR": "/tmp"
+  },
+  "timeout": 30,
+  "retry_count": 3,
+  "retry_delay": 5,
+  "disabled": false,
+  "auto_approve": ["read_file", "list_directory"],
+  "enabled": true
+}
+
+### Create MCP Tool - GitHub Integration
+POST {{baseUrl}}/api/v1/tools
+Content-Type: application/json
+
+{
+  "name": "github-v2",
+  "description": "GitHub repository and issue management",
+  "connection_type": "stdio",
+  "group_id": 2,
+  "command": "uvx",
+  "args": ["mcp-server-github"],
+  "env": {
+    "GITHUB_PERSONAL_ACCESS_TOKEN": "your_github_token_here"
+  },
+  "timeout": 45,
+  "retry_count": 3,
+  "retry_delay": 5,
+  "disabled": false,
+  "auto_approve": ["search_repositories", "get_repository"],
+  "enabled": true
+}
+
+### Create MCP Tool - Database Operations
+POST {{baseUrl}}/api/v1/tools
+Content-Type: application/json
+
+{
+  "name": "postgres-v2",
+  "description": "PostgreSQL database operations",
+  "connection_type": "stdio",
+  "group_id": 2,
+  "command": "uvx",
+  "args": ["mcp-server-postgres"],
+  "env": {
+    "POSTGRES_CONNECTION_STRING": "postgresql://user:password@localhost:5432/dbname"
+  },
+  "timeout": 60,
+  "retry_count": 2,
+  "retry_delay": 10,
+  "disabled": false,
+  "auto_approve": ["list_tables", "describe_table"],
+  "enabled": true
+}
+
+### Create MCP Tool - HTTP Server (SSE)
+POST {{baseUrl}}/api/v1/tools
+Content-Type: application/json
+
+{
+  "name": "http-sse-tool-v2",
+  "description": "HTTP-based MCP tool using Server-Sent Events",
+  "connection_type": "sse",
+  "group_id": 1,
+  "url": "http://localhost:3000/sse",
+  "headers": {
+    "Authorization": "Bearer your_token_here",
+    "Content-Type": "application/json"
+  },
+  "timeout": 30,
+  "retry_count": 3,
+  "retry_delay": 5,
+  "disabled": false,
+  "auto_approve": [],
+  "enabled": true
+}
+
+### Create MCP Tool - HTTP Server (Standard)
+POST {{baseUrl}}/api/v1/tools
+Content-Type: application/json
+
+{
+  "name": "http-standard-tool-v2",
+  "description": "HTTP-based MCP tool using standard HTTP transport",
+  "connection_type": "http",
+  "group_id": 1,
+  "url": "http://localhost:3000/mcp",
+  "headers": {
+    "Authorization": "Bearer your_token_here",
+    "Content-Type": "application/json"
+  },
+  "timeout": 30,
+  "retry_count": 3,
+  "retry_delay": 5,
+  "disabled": false,
+  "auto_approve": [],
+  "enabled": true
+}
+
+### List All MCP Tools
+GET {{baseUrl}}/api/v1/tools
+
+### List MCP Tools by Group (AWS Tools)
+GET {{baseUrl}}/api/v1/tools?group_id=2
+
+### List All Tools (including disabled)
+GET {{baseUrl}}/api/v1/tools?enabled_only=false
+
+### Get Specific MCP Tool
+GET {{baseUrl}}/api/v1/tools/1
+
+### Disable MCP Tool
+PUT {{baseUrl}}/api/v1/tools/1/status
+Content-Type: application/json
+
+{
+  "enabled": false
+}
+
+### Enable MCP Tool
+PUT {{baseUrl}}/api/v1/tools/1/status
+Content-Type: application/json
+
+{
+  "enabled": true
+}
+
+### Test Complex MCP Tool - Slack Integration
+POST {{baseUrl}}/api/v1/tools
+Content-Type: application/json
+
+{
+  "name": "slack-v2",
+  "description": "Slack workspace integration for messaging and file sharing",
+  "connection_type": "stdio",
+  "group_id": 2,
+  "command": "uvx",
+  "args": ["mcp-server-slack"],
+  "env": {
+    "SLACK_BOT_TOKEN": "xoxb-your-bot-token",
+    "SLACK_APP_TOKEN": "xapp-your-app-token"
+  },
+  "timeout": 45,
+  "retry_count": 3,
+  "retry_delay": 8,
+  "disabled": false,
+  "auto_approve": ["list_channels", "get_channel_history"],
+  "enabled": true
+}
+
+### Test MCP Tool with Multiple Environment Variables
+POST {{baseUrl}}/api/v1/tools
+Content-Type: application/json
+
+{
+  "name": "multi-service-v2",
+  "description": "Multi-service integration tool with complex configuration",
+  "connection_type": "stdio",
+  "group_id": 1,
+  "command": "python",
+  "args": ["-m", "mcp_multi_service"],
+  "env": {
+    "API_KEY_1": "key1_value",
+    "API_KEY_2": "key2_value",
+    "SERVICE_URL": "https://api.example.com",
+    "DEBUG_MODE": "true",
+    "TIMEOUT": "30",
+    "RETRY_COUNT": "3"
+  },
+  "timeout": 60,
+  "retry_count": 5,
+  "retry_delay": 10,
+  "disabled": false,
+  "auto_approve": ["health_check", "get_status"],
+  "enabled": true
+}

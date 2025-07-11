@@ -1,0 +1,41 @@
+{
+  "mcpServers": {
+    "aws-core-mcp-server": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "mcp/aws-core-mcp-server"
+      ],
+      "disabled": false
+    },
+    "fetch": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "mcp/fetch"
+      ],
+      "disabled": false
+    },
+    "Ant Design Components": {
+      "command": "npx",
+      "args": [
+        "@jzone-mcp/antd-components-mcp"
+      ]
+    },
+    "awslabs.frontend-mcp-server": {
+      "command": "uvx",
+      "args": [
+        "awslabs.frontend-mcp-server@latest"
+      ],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
