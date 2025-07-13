@@ -1,120 +1,48 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Table,
   Button,
   Space,
   Tag,
   Typography,
-  Modal,
-  Form,
-  Input,
-  Switch,
-  DatePicker,
-  Select,
-  message,
-  Popconfirm,
   Card,
   Tooltip,
-  Alert,
+  Popconfirm,
+  Switch,
+  message,
+  Badge,
 } from 'antd';
 import {
   PlusOutlined,
   EditOutlined,
   DeleteOutlined,
-  EyeOutlined,
-  CopyOutlined,
   KeyOutlined,
+  EyeOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  InfoCircleOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import dayjs from 'dayjs';
 import { ApiKeyService } from '@/services/apiKey.service';
-import type { ApiKey, CreateApiKeyRequest, UpdateApiKeyRequest } from '@/types/api.types';
-import { PERMISSION_LABELS } from '@/constants';
+import type { ApiKey } from '@/types/apiKey.types';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 const ApiKeys: React.FC = () => {
-  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [editingKey, setEditingKey] = useState<ApiKey | null>(null);
-  const [createForm] = Form.useForm();
-  const [editForm] = Form.useForm();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [includeDisabled, setIncludeDisabled] = useState(false);
 
   // Fetch API keys
-  const { data: apiKeysData, isLoading } = useQuery({
-    queryKey: ['apiKeys'],
-    queryFn: () => ApiKeyService.listApiKeys(true), // Include disabled keys
-  });
-
-  // Create API key mutation
-  const createMutation = useMutation({
-    mutationFn: ApiKeyService.createApiKey,
-    onSuccess: (data) => {
-      message.success('API key created successfully!');
-      setIsCreateModalVisible(false);
-      createForm.resetFields();
-      queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
-      
-      // Show the new API key in a modal
-      Modal.info({
-        title: 'New API Key Created',
-        width: 600,
-        content: (
-          <div>
-            <Alert
-              message="Important: Save this API key now!"
-              description="You won't be able to see the full key again after closing this dialog."
-              type="warning"
-              showIcon
-              style={{ marginBottom: 16 }}
-            />
-            <Space direction="vertical" style={{ width: '100%' }}>
-              <div>
-                <Text strong>Name:</Text> {data.data?.name}
-              </div>
-              <div>
-                <Text strong>API Key:</Text>
-                <Input.Group compact style={{ marginTop: 8 }}>
-                  <Input
-                    value={data.data?.api_key}
-                    readOnly
-                    style={{ width: 'calc(100% - 40px)' }}
-                  />
-                  <Button
-                    icon={<CopyOutlined />}
-                    onClick={() => {
-                      navigator.clipboard.writeText(data.data?.api_key || '');
-                      message.success('API key copied to clipboard!');
-                    }}
-                  />
-                </Input.Group>
-              </div>
-            </Space>
-          </div>
-        ),
-      });
-    },
-    onError: (error: any) => {
-      message.error(error.response?.data?.detail || 'Failed to create API key');
-    },
-  });
-
-  // Update API key mutation
-  const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: UpdateApiKeyRequest }) =>
-      ApiKeyService.updateApiKey(id, data),
-    onSuccess: () => {
-      message.success('API key updated successfully!');
-      setIsEditModalVisible(false);
-      setEditingKey(null);
-      editForm.resetFields();
-      queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
-    },
-    onError: (error: any) => {
-      message.error(error.response?.data?.detail || 'Failed to update API key');
-    },
+  const {
+    data: apiKeysData,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['apiKeys', includeDisabled],
+    queryFn: () => ApiKeyService.listApiKeys(includeDisabled),
   });
 
   // Delete API key mutation
@@ -129,36 +57,28 @@ const ApiKeys: React.FC = () => {
     },
   });
 
-  const handleCreate = (values: CreateApiKeyRequest) => {
-    createMutation.mutate(values);
-  };
-
-  const handleEdit = (key: ApiKey) => {
-    setEditingKey(key);
-    editForm.setFieldsValue({
-      name: key.name,
-      can_manage: key.can_manage,
-      can_call_assistant: key.can_call_assistant,
-      is_disabled: key.is_disabled,
-      expires_at: key.expires_at ? dayjs(key.expires_at) : null,
-    });
-    setIsEditModalVisible(true);
-  };
-
-  const handleUpdate = (values: UpdateApiKeyRequest) => {
-    if (!editingKey) return;
-    
-    updateMutation.mutate({
-      id: editingKey.id,
-      data: {
-        ...values,
-        expires_at: values.expires_at ? dayjs(values.expires_at).toISOString() : null,
-      },
-    });
-  };
+  // Update API key mutation
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      ApiKeyService.updateApiKey(id, data),
+    onSuccess: () => {
+      message.success('API key updated successfully!');
+      queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
+    },
+    onError: (error: any) => {
+      message.error(error.response?.data?.detail || 'Failed to update API key');
+    },
+  });
 
   const handleDelete = (id: number) => {
     deleteMutation.mutate(id);
+  };
+
+  const handleToggleDisabled = (record: ApiKey) => {
+    updateMutation.mutate({
+      id: record.id,
+      data: { is_disabled: !record.is_disabled },
+    });
   };
 
   const columns = [
@@ -169,8 +89,7 @@ const ApiKeys: React.FC = () => {
       render: (text: string, record: ApiKey) => (
         <Space>
           <KeyOutlined />
-          <span>{text}</span>
-          {record.is_disabled && <Tag color="red">Disabled</Tag>}
+          <a onClick={() => navigate(`/api-keys/${record.id}`)}>{text}</a>
         </Space>
       ),
     },
@@ -178,42 +97,74 @@ const ApiKeys: React.FC = () => {
       title: 'Key Prefix',
       dataIndex: 'key_prefix',
       key: 'key_prefix',
-      render: (text: string) => <Text code>{text}</Text>,
     },
     {
       title: 'Permissions',
       key: 'permissions',
       render: (record: ApiKey) => (
-        <Space wrap>
-          {record.can_manage && <Tag color="blue">Management</Tag>}
-          {record.can_call_assistant && <Tag color="green">Assistant</Tag>}
+        <Space>
+          <Tag color={record.can_manage ? 'blue' : 'default'}>
+            {record.can_manage ? 'Management' : 'No Management'}
+          </Tag>
+          <Tag color={record.can_call_assistant ? 'green' : 'default'}>
+            {record.can_call_assistant ? 'Assistant Access' : 'No Assistant Access'}
+          </Tag>
         </Space>
       ),
     },
     {
-      title: 'Last Used',
-      dataIndex: 'last_used_at',
-      key: 'last_used_at',
-      render: (date: string) => (
-        date ? dayjs(date).format('YYYY-MM-DD HH:mm') : 'Never'
+      title: 'Status',
+      key: 'status',
+      render: (record: ApiKey) => (
+        <Badge 
+          status={record.is_disabled ? 'error' : 'success'} 
+          text={record.is_disabled ? 'Disabled' : 'Active'} 
+        />
       ),
     },
     {
-      title: 'Created',
+      title: 'Assistants',
+      key: 'assistants',
+      render: (record: ApiKey) => (
+        <Button
+          size="small"
+          icon={<RobotOutlined />}
+          onClick={() => navigate(`/api-keys/${record.id}`)}
+        >
+          Manage
+        </Button>
+      ),
+    },
+    {
+      title: 'Created At',
       dataIndex: 'created_at',
       key: 'created_at',
-      render: (date: string) => dayjs(date).format('YYYY-MM-DD HH:mm'),
+      render: (text: string) => new Date(text).toLocaleString(),
     },
     {
       title: 'Actions',
       key: 'actions',
       render: (record: ApiKey) => (
         <Space>
+          <Tooltip title="View Details">
+            <Button
+              type="text"
+              icon={<EyeOutlined />}
+              onClick={() => navigate(`/api-keys/${record.id}`)}
+            />
+          </Tooltip>
           <Tooltip title="Edit">
             <Button
               type="text"
               icon={<EditOutlined />}
-              onClick={() => handleEdit(record)}
+              onClick={() => navigate(`/api-keys/${record.id}/edit`)}
+            />
+          </Tooltip>
+          <Tooltip title={record.is_disabled ? 'Enable' : 'Disable'}>
+            <Button
+              type="text"
+              icon={record.is_disabled ? <CheckCircleOutlined /> : <CloseCircleOutlined />}
+              onClick={() => handleToggleDisabled(record)}
             />
           </Tooltip>
           <Popconfirm
@@ -243,16 +194,27 @@ const ApiKeys: React.FC = () => {
           <div>
             <Title level={2}>API Keys</Title>
             <Text type="secondary">
-              Manage API keys and their permissions for accessing the MCP Connector.
+              Manage API keys for authentication and authorization.
             </Text>
           </div>
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => setIsCreateModalVisible(true)}
+            onClick={() => navigate('/api-keys/create')}
           >
             Create API Key
           </Button>
+        </div>
+
+        {/* Filter */}
+        <div>
+          <Space align="center">
+            <Switch
+              checked={includeDisabled}
+              onChange={setIncludeDisabled}
+            />
+            <Text>Include disabled keys</Text>
+          </Space>
         </div>
 
         {/* API Keys Table */}
@@ -265,120 +227,10 @@ const ApiKeys: React.FC = () => {
             pagination={{
               showSizeChanger: true,
               showQuickJumper: true,
-              showTotal: (total) => `Total ${total} items`,
+              showTotal: (total) => `Total ${total} API keys`,
             }}
           />
         </Card>
-
-        {/* Create Modal */}
-        <Modal
-          title="Create API Key"
-          open={isCreateModalVisible}
-          onCancel={() => {
-            setIsCreateModalVisible(false);
-            createForm.resetFields();
-          }}
-          footer={null}
-          width={600}
-        >
-          <Form
-            form={createForm}
-            layout="vertical"
-            onFinish={handleCreate}
-          >
-            <Form.Item
-              name="name"
-              label="Name"
-              rules={[{ required: true, message: 'Please enter a name for the API key' }]}
-            >
-              <Input placeholder="Enter API key name" />
-            </Form.Item>
-
-            <Form.Item name="can_manage" label="Management Permission" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-
-            <Form.Item name="can_call_assistant" label="Assistant Permission" valuePropName="checked" initialValue={true}>
-              <Switch />
-            </Form.Item>
-
-            <Form.Item name="expires_at" label="Expiration Date">
-              <DatePicker showTime style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item>
-              <Space>
-                <Button type="primary" htmlType="submit" loading={createMutation.isPending}>
-                  Create
-                </Button>
-                <Button onClick={() => {
-                  setIsCreateModalVisible(false);
-                  createForm.resetFields();
-                }}>
-                  Cancel
-                </Button>
-              </Space>
-            </Form.Item>
-          </Form>
-        </Modal>
-
-        {/* Edit Modal */}
-        <Modal
-          title="Edit API Key"
-          open={isEditModalVisible}
-          onCancel={() => {
-            setIsEditModalVisible(false);
-            setEditingKey(null);
-            editForm.resetFields();
-          }}
-          footer={null}
-          width={600}
-        >
-          <Form
-            form={editForm}
-            layout="vertical"
-            onFinish={handleUpdate}
-          >
-            <Form.Item
-              name="name"
-              label="Name"
-              rules={[{ required: true, message: 'Please enter a name for the API key' }]}
-            >
-              <Input placeholder="Enter API key name" />
-            </Form.Item>
-
-            <Form.Item name="can_manage" label="Management Permission" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-
-            <Form.Item name="can_call_assistant" label="Assistant Permission" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-
-            <Form.Item name="is_disabled" label="Disabled" valuePropName="checked">
-              <Switch />
-            </Form.Item>
-
-            <Form.Item name="expires_at" label="Expiration Date">
-              <DatePicker showTime style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item>
-              <Space>
-                <Button type="primary" htmlType="submit" loading={updateMutation.isPending}>
-                  Update
-                </Button>
-                <Button onClick={() => {
-                  setIsEditModalVisible(false);
-                  setEditingKey(null);
-                  editForm.resetFields();
-                }}>
-                  Cancel
-                </Button>
-              </Space>
-            </Form.Item>
-          </Form>
-        </Modal>
       </Space>
     </div>
   );

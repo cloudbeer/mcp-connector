@@ -22,25 +22,18 @@ async def create_mcp_tool(
 ):
     """Create a new MCP tool."""
     try:
-        # Check if server group exists
-        group = await ServerGroupQueries.get_group_by_id(tool_data.group_id)
-        if not group:
-            raise HTTPException(status_code=404, detail="Server group not found")
-        
-        # Check if group has capacity
-        current_tools = await MCPToolQueries.get_tools_by_group(tool_data.group_id)
-        if len(current_tools) >= group["max_tools"]:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Server group '{group['name']}' has reached maximum capacity ({group['max_tools']} tools)"
-            )
+        # Validate server groups if provided
+        if tool_data.group_ids:
+            for group_id in tool_data.group_ids:
+                group = await ServerGroupQueries.get_group_by_id(group_id)
+                if not group:
+                    raise HTTPException(status_code=404, detail=f"Server group {group_id} not found")
         
         # Create the tool
         tool_record = await MCPToolQueries.create_tool(
             name=tool_data.name,
             description=tool_data.description,
             connection_type=tool_data.connection_type,
-            group_id=tool_data.group_id,
             command=tool_data.command,
             args=tool_data.args,
             env=tool_data.env,
@@ -51,7 +44,8 @@ async def create_mcp_tool(
             retry_delay=tool_data.retry_delay,
             disabled=tool_data.disabled,
             auto_approve=tool_data.auto_approve,
-            enabled=tool_data.enabled
+            enabled=tool_data.enabled,
+            group_ids=tool_data.group_ids
         )
         
         return MCPToolResponse(
@@ -130,26 +124,15 @@ async def batch_import_tools(
         if "mcpServers" not in import_data:
             raise HTTPException(status_code=400, detail="Invalid format: 'mcpServers' key not found")
         
-        if "group_id" not in import_data:
-            raise HTTPException(status_code=400, detail="'group_id' is required for batch import")
-        
-        group_id = import_data["group_id"]
         mcp_servers = import_data["mcpServers"]
+        group_ids = import_data.get("group_ids", [])  # Optional group IDs
         
-        # Check if server group exists
-        group = await ServerGroupQueries.get_group_by_id(group_id)
-        if not group:
-            raise HTTPException(status_code=404, detail="Server group not found")
-        
-        # Get current tools in group to check capacity
-        current_tools = await MCPToolQueries.get_tools_by_group(group_id)
-        available_slots = group["max_tools"] - len(current_tools)
-        
-        if len(mcp_servers) > available_slots:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Not enough capacity. Group has {available_slots} available slots, but trying to import {len(mcp_servers)} tools"
-            )
+        # Validate server groups if provided
+        if group_ids:
+            for group_id in group_ids:
+                group = await ServerGroupQueries.get_group_by_id(group_id)
+                if not group:
+                    raise HTTPException(status_code=404, detail=f"Server group {group_id} not found")
         
         # Get existing tool names to handle duplicates
         existing_tools = await MCPToolQueries.list_all_tools(enabled_only=False)
@@ -191,7 +174,6 @@ async def batch_import_tools(
                     name=unique_name,
                     description=f"Imported from batch: {original_name}",
                     connection_type=connection_type,
-                    group_id=group_id,
                     command=command,
                     args=args,
                     env=env,
@@ -200,7 +182,8 @@ async def batch_import_tools(
                     retry_delay=5,  # Default retry delay
                     disabled=disabled,
                     auto_approve=auto_approve,
-                    enabled=not disabled
+                    enabled=not disabled,
+                    group_ids=group_ids if group_ids else None
                 )
                 
                 imported_tools.append({
@@ -302,18 +285,12 @@ async def update_mcp_tool(
         if not existing_tool:
             raise HTTPException(status_code=404, detail="MCP tool not found")
         
-        # If changing group, check capacity
-        if tool_data.group_id and tool_data.group_id != existing_tool["group_id"]:
-            group = await ServerGroupQueries.get_group_by_id(tool_data.group_id)
-            if not group:
-                raise HTTPException(status_code=404, detail="Server group not found")
-            
-            current_tools = await MCPToolQueries.get_tools_by_group(tool_data.group_id)
-            if len(current_tools) >= group["max_tools"]:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"Server group '{group['name']}' has reached maximum capacity ({group['max_tools']} tools)"
-                )
+        # Validate server groups if provided
+        if tool_data.group_ids is not None:
+            for group_id in tool_data.group_ids:
+                group = await ServerGroupQueries.get_group_by_id(group_id)
+                if not group:
+                    raise HTTPException(status_code=404, detail=f"Server group {group_id} not found")
         
         # Update the tool
         updated_tool = await MCPToolQueries.update_tool(
@@ -332,7 +309,7 @@ async def update_mcp_tool(
             disabled=tool_data.disabled,
             auto_approve=tool_data.auto_approve,
             enabled=tool_data.enabled,
-            group_id=tool_data.group_id
+            group_ids=tool_data.group_ids
         )
         
         return MCPToolResponse(

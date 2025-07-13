@@ -7,8 +7,15 @@ import Layout from '@/components/layout/Layout';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import ApiKeys from '@/pages/ApiKeys';
+import ApiKeyCreate from '@/pages/ApiKeyCreate';
+import ApiKeyDetail from '@/pages/ApiKeyDetail';
+import ApiKeyEdit from '@/pages/ApiKeyEdit';
 import McpTools from '@/pages/McpTools';
+import McpToolDetail from '@/pages/McpToolDetail';
 import ServerGroups from '@/pages/ServerGroups';
+import Assistants from '@/pages/Assistants';
+import AssistantDetail from '@/pages/AssistantDetail';
+import AssistantEdit from '@/pages/AssistantEdit';
 import { useAuth } from '@/hooks/useAuth';
 
 // Create a client
@@ -70,8 +77,15 @@ const App: React.FC = () => {
                         <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/api-keys" element={<ApiKeys />} />
+                        <Route path="/api-keys/create" element={<ApiKeyCreate />} />
+                        <Route path="/api-keys/:id" element={<ApiKeyDetail />} />
+                        <Route path="/api-keys/:id/edit" element={<ApiKeyEdit />} />
                         <Route path="/mcp-tools" element={<McpTools />} />
+                        <Route path="/mcp-tools/:id" element={<McpToolDetail />} />
                         <Route path="/server-groups" element={<ServerGroups />} />
+                        <Route path="/assistants" element={<Assistants />} />
+                        <Route path="/assistants/:id" element={<AssistantDetail />} />
+                        <Route path="/assistants/:id/edit" element={<AssistantEdit />} />
                       </Routes>
                     </Layout>
                   </ProtectedRoute>

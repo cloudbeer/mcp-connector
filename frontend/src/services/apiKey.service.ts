@@ -1,19 +1,14 @@
 import { apiService } from './api.service';
-import type {
-  ApiResponse,
-  ApiKey,
-  ApiKeyWithSecret,
-  CreateApiKeyRequest,
-  UpdateApiKeyRequest,
-  ApiKeyStats,
-  UsageLog,
-  Assistant,
-} from '@/types/api.types';
+import type { ApiResponse } from '@/types/api.types';
+import type { ApiKey, ApiKeyCreate, ApiKeyUpdate } from '@/types/apiKey.types';
 
 export class ApiKeyService {
-  // List all API keys
+  // List API keys
   static async listApiKeys(includeDisabled = false): Promise<ApiResponse<ApiKey[]>> {
-    return apiService.get(`/api/v1/api-keys?include_disabled=${includeDisabled}`);
+    const params = new URLSearchParams();
+    params.append('include_disabled', includeDisabled.toString());
+    
+    return apiService.get(`/api/v1/api-keys?${params.toString()}`);
   }
 
   // Get specific API key
@@ -22,12 +17,12 @@ export class ApiKeyService {
   }
 
   // Create new API key
-  static async createApiKey(data: CreateApiKeyRequest): Promise<ApiResponse<ApiKeyWithSecret>> {
+  static async createApiKey(data: ApiKeyCreate): Promise<ApiResponse<ApiKey>> {
     return apiService.post('/api/v1/api-keys', data);
   }
 
   // Update API key
-  static async updateApiKey(id: number, data: UpdateApiKeyRequest): Promise<ApiResponse<ApiKey>> {
+  static async updateApiKey(id: number, data: ApiKeyUpdate): Promise<ApiResponse<ApiKey>> {
     return apiService.put(`/api/v1/api-keys/${id}`, data);
   }
 
@@ -36,42 +31,38 @@ export class ApiKeyService {
     return apiService.delete(`/api/v1/api-keys/${id}`);
   }
 
-  // Get API key assistants
-  static async getApiKeyAssistants(id: number): Promise<ApiResponse<Assistant[]>> {
-    return apiService.get(`/api/v1/api-keys/${id}/assistants`);
-  }
-
-  // Bind assistant to API key
-  static async bindAssistant(keyId: number, assistantId: number): Promise<ApiResponse> {
-    return apiService.post(`/api/v1/api-keys/${keyId}/assistants/${assistantId}`);
-  }
-
-  // Unbind assistant from API key
-  static async unbindAssistant(keyId: number, assistantId: number): Promise<ApiResponse> {
-    return apiService.delete(`/api/v1/api-keys/${keyId}/assistants/${assistantId}`);
-  }
-
-  // Get API key statistics
-  static async getApiKeyStats(id: number, days = 30): Promise<ApiResponse<ApiKeyStats>> {
-    return apiService.get(`/api/v1/api-keys/${id}/stats?days=${days}`);
-  }
-
-  // Get API key usage logs
-  static async getApiKeyLogs(
-    id: number,
-    limit = 100,
-    offset = 0
-  ): Promise<ApiResponse<UsageLog[]>> {
-    return apiService.get(`/api/v1/api-keys/${id}/logs?limit=${limit}&offset=${offset}`);
-  }
-
-  // Get current API key info
+  // Get my key info
   static async getMyKeyInfo(): Promise<ApiResponse<ApiKey>> {
     return apiService.get('/api/v1/my-key');
   }
 
   // Get my accessible assistants
-  static async getMyAssistants(): Promise<ApiResponse<Assistant[]>> {
+  static async getMyAssistants(): Promise<ApiResponse<any[]>> {
     return apiService.get('/api/v1/my-assistants');
+  }
+
+  // Get API key assistants
+  static async getKeyAssistants(keyId: number): Promise<ApiResponse<any[]>> {
+    return apiService.get(`/api/v1/api-keys/${keyId}/assistants`);
+  }
+
+  // Bind assistant to API key
+  static async bindAssistantToKey(keyId: number, assistantId: number): Promise<ApiResponse> {
+    return apiService.post(`/api/v1/api-keys/${keyId}/assistants/${assistantId}`);
+  }
+
+  // Unbind assistant from API key
+  static async unbindAssistantFromKey(keyId: number, assistantId: number): Promise<ApiResponse> {
+    return apiService.delete(`/api/v1/api-keys/${keyId}/assistants/${assistantId}`);
+  }
+
+  // Get API key usage statistics
+  static async getKeyStats(keyId: number, days = 30): Promise<ApiResponse<any>> {
+    return apiService.get(`/api/v1/api-keys/${keyId}/stats?days=${days}`);
+  }
+
+  // Get API key usage logs
+  static async getKeyLogs(keyId: number, limit = 100, offset = 0): Promise<ApiResponse<any[]>> {
+    return apiService.get(`/api/v1/api-keys/${keyId}/logs?limit=${limit}&offset=${offset}`);
   }
 }

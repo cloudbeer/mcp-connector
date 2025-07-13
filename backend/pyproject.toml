@@ -25,21 +25,25 @@ classifiers = [
 
 dependencies = [
     # Web 框架
-    "fastapi>=0.104.1",
-    "uvicorn[standard]>=0.24.0",
-    
+    "fastapi>=0.116.1",
+    "uvicorn[standard]>=0.35.0",
     # 数据库
     "asyncpg>=0.29.0",
-    
     # 工具库
     "pydantic>=2.5.0",
     "pydantic-settings>=2.0.0",
     "python-dotenv>=1.0.0",
     "httpx>=0.25.0",
-    
+    # MCP 和 AI Agent
+    "mcp>=1.11.0",
+    "strands-agents>=0.3.0",
     # 基础依赖
     "typing-extensions>=4.0.0",
+    "strands-agents-tools>=0.1.9",
 ]
+
+[tool.uv]
+cache-dir = "/tmp/uv_cache"
 
 [project.optional-dependencies]
 dev = [

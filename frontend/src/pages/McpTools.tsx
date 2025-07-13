@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Table,
   Button,
@@ -44,6 +45,7 @@ const { Option } = Select;
 const { TextArea } = Input;
 
 const McpTools: React.FC = () => {
+  const navigate = useNavigate();
   const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [isBatchImportVisible, setIsBatchImportVisible] = useState(false);
@@ -290,7 +292,7 @@ const McpTools: React.FC = () => {
       render: (text: string, record: McpTool) => (
         <Space>
           <ApiOutlined />
-          <span>{text}</span>
+          <a onClick={() => navigate(`/mcp-tools/${record.id}`)}>{text}</a>
           {record.disabled && <Tag color="red">Disabled</Tag>}
         </Space>
       ),

@@ -3,10 +3,11 @@ API Key related database queries.
 """
 import hashlib
 import secrets
-from typing import List, Dict, Any, Optional
-from datetime import datetime
+from typing import List, Dict, Any, Optional, Union
+from datetime import datetime, timezone
 
 from app.db.connection import db_manager
+from app.utils.datetime_utils import parse_datetime
 
 
 class APIKeyQueries:
@@ -44,7 +45,7 @@ class APIKeyQueries:
         can_call_assistant: bool = True,
         is_disabled: bool = False,
         created_by: str = None,
-        expires_at: datetime = None
+        expires_at: Union[datetime, str] = None
     ) -> tuple[Dict[str, Any], str]:
         """Create a new API key.
         
@@ -52,6 +53,10 @@ class APIKeyQueries:
             tuple: (api_key_record, full_api_key)
         """
         api_key, key_hash, key_prefix = APIKeyQueries.generate_api_key()
+        
+        # 处理日期时间
+        if expires_at and not isinstance(expires_at, datetime):
+            expires_at = parse_datetime(expires_at)
         
         query = """
             INSERT INTO api_key (name, key_hash, key_prefix, can_manage, can_call_assistant, 
@@ -96,7 +101,7 @@ class APIKeyQueries:
         can_manage: bool = None,
         can_call_assistant: bool = None,
         is_disabled: bool = None,
-        expires_at: datetime = None
+        expires_at: Union[datetime, str] = None
     ) -> Optional[Dict[str, Any]]:
         """Update API key."""
         updates = []
@@ -124,6 +129,10 @@ class APIKeyQueries:
             param_count += 1
         
         if expires_at is not None:
+            # 处理日期时间
+            if not isinstance(expires_at, datetime):
+                expires_at = parse_datetime(expires_at)
+                
             updates.append(f"expires_at = ${param_count}")
             params.append(expires_at)
             param_count += 1

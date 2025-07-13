@@ -2,10 +2,12 @@
 API Key related models.
 """
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Union
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
+
+from app.utils.datetime_utils import parse_datetime
 
 
 class APIKeyPermission(str, Enum):
@@ -22,6 +24,16 @@ class APIKeyBase(BaseModel):
     is_disabled: bool = Field(default=False, description="是否禁用")
     created_by: Optional[str] = Field(None, max_length=100, description="创建者")
     expires_at: Optional[datetime] = Field(None, description="过期时间")
+    
+    @validator('expires_at', pre=True)
+    def parse_expires_at(cls, v):
+        """解析过期时间，确保时区一致性"""
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            # 如果已经是 datetime 对象，确保没有时区信息
+            return v.replace(tzinfo=None) if v.tzinfo else v
+        return parse_datetime(v)
 
 
 class APIKeyCreate(APIKeyBase):
@@ -37,6 +49,16 @@ class APIKeyUpdate(BaseModel):
     is_disabled: Optional[bool] = None
     expires_at: Optional[datetime] = None
     assistant_ids: Optional[List[int]] = None
+    
+    @validator('expires_at', pre=True)
+    def parse_expires_at(cls, v):
+        """解析过期时间，确保时区一致性"""
+        if v is None:
+            return None
+        if isinstance(v, datetime):
+            # 如果已经是 datetime 对象，确保没有时区信息
+            return v.replace(tzinfo=None) if v.tzinfo else v
+        return parse_datetime(v)
 
 
 class APIKey(APIKeyBase):

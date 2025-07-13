@@ -8,7 +8,6 @@ import {
   Space,
   Alert,
   Typography,
-  Divider,
   List,
   Tag,
   Card,
@@ -22,14 +21,12 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   InfoCircleOutlined,
-  CodeOutlined,
-  CopyOutlined,
 } from '@ant-design/icons';
 import type { ServerGroup } from '@/types/api.types';
 
 const { TextArea } = Input;
 const { Option } = Select;
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 interface BatchImportModalProps {
   visible: boolean;
@@ -54,21 +51,6 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
   const [parseError, setParseError] = useState<string>('');
   const [importResult, setImportResult] = useState<any>(null);
   const [step, setStep] = useState<'input' | 'preview' | 'result'>('input');
-  const [showExample, setShowExample] = useState(false);
-
-  const exampleJson = `{
-  "mcpServers": {
-    "your-mcp-server": {
-      "command": "uvx",
-      "args": ["your-mcp-server"],
-      "env": {
-        "LOG_LEVEL": "ERROR"
-      },
-      "autoApprove": [],
-      "disabled": false
-    }
-  }
-}`;
 
   const placeholderText = `Paste your MCP servers JSON configuration here...
 
@@ -87,16 +69,16 @@ Example format:
     setJsonInput(value);
     setParseError('');
     setParsedData(null);
-    
+
     if (!value.trim()) return;
-    
+
     try {
       const parsed = JSON.parse(value);
       if (!parsed.mcpServers) {
         setParseError('Invalid format: "mcpServers" key not found');
         return;
       }
-      
+
       setParsedData(parsed);
     } catch (error) {
       setParseError('Invalid JSON format');
@@ -110,13 +92,13 @@ Example format:
 
   const handleImport = async (values: { group_id: number }) => {
     if (!parsedData) return;
-    
+
     try {
       const result = await onImport({
         mcpServers: parsedData.mcpServers,
         group_id: values.group_id,
       });
-      
+
       setImportResult(result.data);
       setStep('result');
     } catch (error) {
@@ -130,7 +112,6 @@ Example format:
     setParsedData(null);
     setParseError('');
     setImportResult(null);
-    setShowExample(false);
     form.resetFields();
   };
 
@@ -144,13 +125,8 @@ Example format:
     onSuccess();
   };
 
-  const handleCopyExample = () => {
-    navigator.clipboard.writeText(exampleJson);
-    message.success('Example JSON copied to clipboard!');
-  };
-
   const renderInputStep = () => (
-    <div>
+    <div style={{ minHeight: 450 }}>
       <Form form={form} layout="vertical">
         <Form.Item
           name="group_id"
@@ -180,7 +156,7 @@ Example format:
             value={jsonInput}
             onChange={(e) => handleJsonChange(e.target.value)}
             placeholder={placeholderText}
-            rows={12}
+            rows={16}
             style={{ fontFamily: 'monospace' }}
           />
         </Form.Item>
@@ -195,37 +171,12 @@ Example format:
           />
         )}
       </Form>
-
-      <Space style={{ marginBottom: 16 }}>
-        <Button
-          icon={<CodeOutlined />}
-          onClick={() => setShowExample(!showExample)}
-        >
-          {showExample ? 'Hide' : 'Show'} Example
-        </Button>
-        {showExample && (
-          <Button
-            icon={<CopyOutlined />}
-            onClick={handleCopyExample}
-          >
-            Copy Example
-          </Button>
-        )}
-      </Space>
-      
-      {showExample && (
-        <Card size="small" title="Example JSON Configuration">
-          <pre style={{ fontSize: '12px', margin: 0, overflow: 'auto' }}>
-            {exampleJson}
-          </pre>
-        </Card>
-      )}
     </div>
   );
 
   const renderPreviewStep = () => {
     const servers = parsedData?.mcpServers || {};
-    
+
     return (
       <div>
         <Alert
@@ -236,38 +187,40 @@ Example format:
           style={{ marginBottom: 16 }}
         />
 
-        <List
-          dataSource={Object.entries(servers)}
-          renderItem={([name, config]: [string, any]) => (
-            <List.Item>
-              <Card size="small" style={{ width: '100%' }}>
-                <Row gutter={16}>
-                  <Col span={8}>
-                    <Text strong>{name}</Text>
-                  </Col>
-                  <Col span={8}>
-                    <Space>
-                      <Tag color="blue">{config.command}</Tag>
-                      {config.disabled && <Tag color="red">Disabled</Tag>}
-                    </Space>
-                  </Col>
-                  <Col span={8}>
-                    <Text type="secondary">
-                      {config.args?.length || 0} args, {Object.keys(config.env || {}).length} env vars
-                    </Text>
-                  </Col>
-                </Row>
-                {config.args && config.args.length > 0 && (
-                  <div style={{ marginTop: 8 }}>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      Args: {config.args.join(' ')}
-                    </Text>
-                  </div>
-                )}
-              </Card>
-            </List.Item>
-          )}
-        />
+        <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+          <List
+            dataSource={Object.entries(servers)}
+            renderItem={([name, config]: [string, any]) => (
+              <List.Item>
+                <Card size="small" style={{ width: '100%' }}>
+                  <Row gutter={16}>
+                    <Col span={8}>
+                      <Text strong>{name}</Text>
+                    </Col>
+                    <Col span={8}>
+                      <Space>
+                        <Tag color="blue">{config.command}</Tag>
+                        {config.disabled && <Tag color="red">Disabled</Tag>}
+                      </Space>
+                    </Col>
+                    <Col span={8}>
+                      <Text type="secondary">
+                        {config.args?.length || 0} args, {Object.keys(config.env || {}).length} env vars
+                      </Text>
+                    </Col>
+                  </Row>
+                  {config.args && config.args.length > 0 && (
+                    <div style={{ marginTop: 8 }}>
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                        Args: {config.args.join(' ')}
+                      </Text>
+                    </div>
+                  )}
+                </Card>
+              </List.Item>
+            )}
+          />
+        </div>
       </div>
     );
   };
@@ -315,39 +268,43 @@ Example format:
         {imported.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <Title level={5}>Successfully Imported Tools:</Title>
-            <List
-              size="small"
-              dataSource={imported}
-              renderItem={(item: any) => (
-                <List.Item>
-                  <Space>
-                    <CheckCircleOutlined style={{ color: '#52c41a' }} />
-                    <Text>{item.imported_name}</Text>
-                    {item.renamed && (
-                      <Tag color="orange">Renamed from: {item.original_name}</Tag>
-                    )}
-                  </Space>
-                </List.Item>
-              )}
-            />
+            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+              <List
+                size="small"
+                dataSource={imported}
+                renderItem={(item: any) => (
+                  <List.Item>
+                    <Space>
+                      <CheckCircleOutlined style={{ color: '#52c41a' }} />
+                      <Text>{item.imported_name}</Text>
+                      {item.renamed && (
+                        <Tag color="orange">Renamed from: {item.original_name}</Tag>
+                      )}
+                    </Space>
+                  </List.Item>
+                )}
+              />
+            </div>
           </div>
         )}
 
         {errors.length > 0 && (
           <div>
             <Title level={5}>Errors:</Title>
-            <List
-              size="small"
-              dataSource={errors}
-              renderItem={(error: any) => (
-                <List.Item>
-                  <Space>
-                    <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
-                    <Text>{error.tool_name}: {error.error}</Text>
-                  </Space>
-                </List.Item>
-              )}
-            />
+            <div style={{ maxHeight: 200, overflowY: 'auto' }}>
+              <List
+                size="small"
+                dataSource={errors}
+                renderItem={(error: any) => (
+                  <List.Item>
+                    <Space>
+                      <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                      <Text>{error.tool_name}: {error.error}</Text>
+                    </Space>
+                  </List.Item>
+                )}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -371,7 +328,7 @@ Example format:
             Preview Import
           </Button>,
         ];
-      
+
       case 'preview':
         return [
           <Button key="back" onClick={() => setStep('input')}>
@@ -387,14 +344,14 @@ Example format:
             Import Tools
           </Button>,
         ];
-      
+
       case 'result':
         return [
           <Button key="finish" type="primary" onClick={handleFinish}>
             Finish
           </Button>,
         ];
-      
+
       default:
         return [];
     }
@@ -406,7 +363,8 @@ Example format:
       open={visible}
       onCancel={handleClose}
       footer={getFooterButtons()}
-      width={800}
+      width={900}
+      style={{ top: 20 }}
       destroyOnClose
     >
       <Form form={form} onFinish={handleImport}>

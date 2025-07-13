@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.db.connection import db_manager
 from app.api.v1 import health
+from app.api.v1.openai_compatible import start_session_cleanup
 
 
 # Configure logging
@@ -26,6 +27,11 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting MCP Connector...")
     await db_manager.connect()
+    
+    # Start session cleanup task
+    start_session_cleanup()
+    logger.info("Session cleanup task started")
+    
     logger.info("MCP Connector started successfully")
     
     yield
@@ -68,6 +74,18 @@ app.include_router(api_keys.router, prefix="/api/v1", tags=["api-keys"])
 # Import and include server groups router
 from app.api.v1 import server_groups
 app.include_router(server_groups.router, prefix="/api/v1", tags=["server-groups"])
+
+# Import and include MCP servers router
+from app.api.v1 import mcp_servers
+app.include_router(mcp_servers.router, prefix="/api/v1", tags=["mcp-servers"])
+
+# Import and include assistants router
+from app.api.v1 import assistants
+app.include_router(assistants.router, prefix="/api/v1", tags=["assistants"])
+
+# Import and include OpenAI compatible API router
+from app.api.v1 import openai_compatible
+app.include_router(openai_compatible.router, tags=["openai-compatible"])
 
 
 @app.get("/")

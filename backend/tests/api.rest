@@ -21,6 +21,32 @@ GET {{baseUrl}}/
 GET {{baseUrl}}/api/v1/api-keys
 Authorization: Bearer {{adminKey}}
 
+### Start
+POST {{baseUrl}}/api/v1/mcp-servers/start
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+{
+  "tool_id": 4
+}
+### Stop
+POST {{baseUrl}}/api/v1/mcp-servers/stop/4
+Authorization: Bearer {{adminKey}}
+Content-Type: application/json
+
+### List mcp servers
+GET {{baseUrl}}/api/v1/mcp-servers/4/status
+Authorization: Bearer {{adminKey}}
+
+
+### List mcp servers
+GET {{baseUrl}}/api/v1/mcp-servers/4/tools
+Authorization: Bearer {{adminKey}}
+
+### List tools
+GET {{baseUrl}}/api/v1/mcp-servers/{tool_id}/tools
+Authorization: Bearer {{adminKey}}
+
 ### List API Keys Including Disabled
 GET {{baseUrl}}/api/v1/api-keys?include_disabled=true
 Authorization: Bearer {{adminKey}}
@@ -429,4 +455,134 @@ Content-Type: application/json
   "disabled": false,
   "auto_approve": ["health_check", "get_status"],
   "enabled": true
+}
+### ========== OpenAI Compatible API Tests ==========
+
+### Chat Completion - Regular Response
+POST {{baseUrl}}/chat/completions
+Authorization: Bearer {{assistantKey}}
+Content-Type: application/json
+
+{
+  "model": "General Assistant",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What can you tell me about AWS Lambda?"}
+  ],
+  "stream": false
+}
+
+### Chat Completion - Streaming Response
+# Note: This endpoint returns a stream, which REST Client will display as it arrives
+POST {{baseUrl}}/chat/completions
+Authorization: Bearer {{assistantKey}}
+Content-Type: application/json
+
+{
+  "model": "General Assistant",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Write a short poem about cloud computing."}
+  ],
+  "stream": true
+}
+
+### Chat Completion - With Tool Use
+POST {{baseUrl}}/chat/completions
+Authorization: Bearer {{assistantKey}}
+Content-Type: application/json
+
+{
+  "model": "Technical Assistant",
+  "messages": [
+    {"role": "system", "content": "You are a technical assistant with access to various tools."},
+    {"role": "user", "content": "Can you fetch the current weather in New York?"}
+  ],
+  "stream": false
+}
+
+### Chat Completion - With Temperature Setting
+POST {{baseUrl}}/chat/completions
+Authorization: Bearer {{assistantKey}}
+Content-Type: application/json
+
+{
+  "model": "aws_helper",
+  "messages": [
+    {"role": "system", "content": "You are a creative assistant."},
+    {"role": "user", "content": "你能告诉我aws bedrock 什么时候发布的吗？"}
+  ],
+  "temperature": 0.9,
+  "stream": false
+}
+
+
+### Chat Completion - With Temperature Setting
+POST {{baseUrl}}/chat/completions
+Authorization: Bearer {{assistantKey}}
+Content-Type: application/json
+session_id: xxx123
+
+{
+  "model": "aws_helper",
+  "messages": [
+    {"role": "system", "content": "You are a creative assistant."},
+    {"role": "user", "content": "cloudfront 默认timeout是多少？"}
+  ],
+  "temperature": 0.9,
+  "stream": false
+}
+
+### Chat Completion - With Temperature Setting
+POST {{baseUrl}}/chat/completions
+Authorization: Bearer {{assistantKey}}
+Content-Type: application/json
+
+{
+  "model": "aws_helper",
+  "messages": [
+    {"role": "system", "content": "You are a creative assistant."},
+    {"role": "user", "content": "你能告诉我https://strandsagents.com/0.2.x/ 讲了什么吗？"}
+  ],
+  "temperature": 0.9,
+  "stream": false
+}
+
+### Chat Completion - Invalid Assistant Name (should fail)
+POST {{baseUrl}}/chat/completions
+Authorization: Bearer {{assistantKey}}
+Content-Type: application/json
+
+{
+  "model": "NonExistentAssistant",
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "Hello, how are you?"}
+  ],
+  "stream": false
+}
+
+### Chat Completion - Invalid API Key (should fail)
+POST {{baseUrl}}/chat/completions
+Authorization: Bearer invalid_api_key
+Content-Type: application/json
+
+{
+  "model": "General Assistant",
+  "messages": [
+    {"role": "user", "content": "Hello, how are you?"}
+  ],
+  "stream": false
+}
+
+### Chat Completion - Missing API Key (should fail)
+POST {{baseUrl}}/chat/completions
+Content-Type: application/json
+
+{
+  "model": "General Assistant",
+  "messages": [
+    {"role": "user", "content": "Hello, how are you?"}
+  ],
+  "stream": false
 }

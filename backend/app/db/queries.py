@@ -41,6 +41,13 @@ def parse_mcp_tool_json_fields(result: Dict[str, Any]) -> Dict[str, Any]:
         except (json.JSONDecodeError, TypeError):
             result['auto_approve'] = []
     
+    # Parse groups field
+    if result.get('groups') and isinstance(result['groups'], str):
+        try:
+            result['groups'] = json.loads(result['groups'])
+        except (json.JSONDecodeError, TypeError):
+            result['groups'] = []
+    
     return result
 
 
@@ -133,7 +140,6 @@ class MCPToolQueries:
         name: str,
         description: str,
         connection_type: str,
-        group_id: int,
         command: str = None,
         args: List[str] = None,
         env: Dict[str, str] = None,
@@ -144,22 +150,22 @@ class MCPToolQueries:
         retry_delay: int = 5,
         disabled: bool = False,
         auto_approve: List[str] = None,
-        enabled: bool = True
+        enabled: bool = True,
+        group_ids: List[int] = None
     ) -> Dict[str, Any]:
         """Create a new MCP tool."""
-        import json
-        
+        # Create the tool first
         query = """
             INSERT INTO mcp_tool (
-                name, description, connection_type, group_id,
+                name, description, connection_type,
                 command, args, env, url, headers, timeout, retry_count, retry_delay,
                 disabled, auto_approve, enabled
             )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING *
         """
         result = await db_manager.fetch_one(
-            query, name, description, connection_type, group_id,
+            query, name, description, connection_type,
             command, 
             json.dumps(args) if args else None,
             json.dumps(env) if env else None,
@@ -171,34 +177,110 @@ class MCPToolQueries:
             enabled
         )
         
+        # Add group relations if provided
+        if group_ids and result:
+            tool_id = result['id']
+            for group_id in group_ids:
+                await db_manager.execute("""
+                    INSERT INTO tool_group_relation (tool_id, group_id)
+                    VALUES ($1, $2)
+                    ON CONFLICT (tool_id, group_id) DO NOTHING
+                """, tool_id, group_id)
+        
         return parse_mcp_tool_json_fields(result)
     
     @staticmethod
     async def get_tool_by_id(tool_id: int) -> Optional[Dict[str, Any]]:
-        """Get MCP tool by ID."""
-        query = "SELECT * FROM mcp_tool WHERE id = $1"
+        """Get MCP tool by ID with its groups."""
+        query = """
+            SELECT t.*, 
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'id', sg.id,
+                               'name', sg.name,
+                               'description', sg.description,
+                               'max_tools', sg.max_tools
+                           )
+                       ) FILTER (WHERE sg.id IS NOT NULL), 
+                       '[]'::json
+                   ) as groups
+            FROM mcp_tool t
+            LEFT JOIN tool_group_relation tgr ON t.id = tgr.tool_id
+            LEFT JOIN server_group sg ON tgr.group_id = sg.id
+            WHERE t.id = $1
+            GROUP BY t.id
+        """
         result = await db_manager.fetch_one(query, tool_id)
         return parse_mcp_tool_json_fields(result)
     
     @staticmethod
     async def get_tools_by_group(group_id: int) -> List[Dict[str, Any]]:
         """Get all tools in a group."""
-        query = "SELECT * FROM mcp_tool WHERE group_id = $1 AND enabled = true ORDER BY created_at"
+        query = """
+            SELECT t.*
+            FROM mcp_tool t
+            JOIN tool_group_relation tgr ON t.id = tgr.tool_id
+            WHERE tgr.group_id = $1 AND t.enabled = true
+            ORDER BY t.created_at
+        """
         results = await db_manager.fetch_all(query, group_id)
         return [parse_mcp_tool_json_fields(result) for result in results]
     
     @staticmethod
     async def list_enabled_tools() -> List[Dict[str, Any]]:
-        """List all enabled tools."""
-        query = "SELECT * FROM mcp_tool WHERE enabled = true ORDER BY created_at"
+        """List all enabled tools with their groups."""
+        query = """
+            SELECT t.*, 
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'id', sg.id,
+                               'name', sg.name,
+                               'description', sg.description,
+                               'max_tools', sg.max_tools
+                           )
+                       ) FILTER (WHERE sg.id IS NOT NULL), 
+                       '[]'::json
+                   ) as groups
+            FROM mcp_tool t
+            LEFT JOIN tool_group_relation tgr ON t.id = tgr.tool_id
+            LEFT JOIN server_group sg ON tgr.group_id = sg.id
+            WHERE t.enabled = true
+            GROUP BY t.id
+            ORDER BY t.created_at
+        """
         results = await db_manager.fetch_all(query)
         return [parse_mcp_tool_json_fields(result) for result in results]
     
     @staticmethod
-    async def update_tool_status(tool_id: int, enabled: bool) -> None:
-        """Update tool enabled status."""
-        query = "UPDATE mcp_tool SET enabled = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2"
-        await db_manager.execute(query, enabled, tool_id)
+    async def list_all_tools(enabled_only: bool = True) -> List[Dict[str, Any]]:
+        """List all tools with optional filtering and their groups."""
+        where_clause = "WHERE t.enabled = true" if enabled_only else ""
+        
+        query = f"""
+            SELECT t.*, 
+                   COALESCE(
+                       json_agg(
+                           json_build_object(
+                               'id', sg.id,
+                               'name', sg.name,
+                               'description', sg.description,
+                               'max_tools', sg.max_tools
+                           )
+                       ) FILTER (WHERE sg.id IS NOT NULL), 
+                       '[]'::json
+                   ) as groups
+            FROM mcp_tool t
+            LEFT JOIN tool_group_relation tgr ON t.id = tgr.tool_id
+            LEFT JOIN server_group sg ON tgr.group_id = sg.id
+            {where_clause}
+            GROUP BY t.id
+            ORDER BY t.created_at DESC
+        """
+        
+        results = await db_manager.fetch_all(query)
+        return [parse_mcp_tool_json_fields(result) for result in results]
     
     @staticmethod
     async def update_tool(
@@ -217,11 +299,9 @@ class MCPToolQueries:
         disabled: bool = None,
         auto_approve: List[str] = None,
         enabled: bool = None,
-        group_id: int = None
+        group_ids: List[int] = None
     ) -> Optional[Dict[str, Any]]:
         """Update MCP tool."""
-        import json
-        
         updates = []
         params = []
         param_count = 1
@@ -296,107 +376,64 @@ class MCPToolQueries:
             params.append(enabled)
             param_count += 1
         
-        if group_id is not None:
-            updates.append(f"group_id = ${param_count}")
-            params.append(group_id)
-            param_count += 1
+        # Update tool fields if any
+        if updates:
+            updates.append("updated_at = CURRENT_TIMESTAMP")
+            params.append(tool_id)
+            
+            query = f"""
+                UPDATE mcp_tool 
+                SET {', '.join(updates)}
+                WHERE id = ${param_count}
+            """
+            
+            await db_manager.execute(query, *params)
         
-        if not updates:
-            return await MCPToolQueries.get_tool_by_id(tool_id)
+        # Update group relations if provided
+        if group_ids is not None:
+            # Remove existing relations
+            await db_manager.execute("""
+                DELETE FROM tool_group_relation WHERE tool_id = $1
+            """, tool_id)
+            
+            # Add new relations
+            for group_id in group_ids:
+                await db_manager.execute("""
+                    INSERT INTO tool_group_relation (tool_id, group_id)
+                    VALUES ($1, $2)
+                    ON CONFLICT (tool_id, group_id) DO NOTHING
+                """, tool_id, group_id)
         
-        updates.append("updated_at = CURRENT_TIMESTAMP")
-        params.append(tool_id)
-        
-        query = f"""
-            UPDATE mcp_tool 
-            SET {', '.join(updates)}
-            WHERE id = ${param_count}
-            RETURNING *
-        """
-        
-        result = await db_manager.fetch_one(query, *params)
-        return parse_mcp_tool_json_fields(result)
+        return await MCPToolQueries.get_tool_by_id(tool_id)
     
     @staticmethod
     async def delete_tool(tool_id: int) -> bool:
-        """Delete MCP tool."""
+        """Delete MCP tool and its group relations."""
+        # Relations will be deleted automatically due to CASCADE
         query = "DELETE FROM mcp_tool WHERE id = $1"
         result = await db_manager.execute(query, tool_id)
         return "DELETE 1" in result
     
     @staticmethod
-    async def list_all_tools(enabled_only: bool = True) -> List[Dict[str, Any]]:
-        """List all tools with optional filtering."""
-        if enabled_only:
-            query = "SELECT * FROM mcp_tool WHERE enabled = true ORDER BY created_at DESC"
-        else:
-            query = "SELECT * FROM mcp_tool ORDER BY created_at DESC"
-        
-        results = await db_manager.fetch_all(query)
-        return [parse_mcp_tool_json_fields(result) for result in results]
-
-
-class ToolStatusQueries:
-    """Tool status related queries."""
-    
-    @staticmethod
-    async def create_status(
-        tool_id: int,
-        status: str,
-        error_message: str = None
-    ) -> Dict[str, Any]:
-        """Create tool status record."""
-        query = """
-            INSERT INTO tool_status (tool_id, status, error_message, last_health_check)
-            VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-            RETURNING *
-        """
-        return await db_manager.fetch_one(query, tool_id, status, error_message)
-    
-    @staticmethod
-    async def update_status(
-        tool_id: int,
-        status: str,
-        error_message: str = None,
-        retry_count: int = 0
-    ) -> None:
+    async def update_tool_status(tool_id: int, enabled: bool) -> bool:
         """Update tool status."""
-        query = """
-            UPDATE tool_status 
-            SET status = $1, error_message = $2, retry_count = $3, 
-                last_health_check = CURRENT_TIMESTAMP
-            WHERE tool_id = $4
-        """
-        await db_manager.execute(query, status, error_message, retry_count, tool_id)
-    
-    @staticmethod
-    async def get_tool_status(tool_id: int) -> Optional[Dict[str, Any]]:
-        """Get current tool status."""
-        query = "SELECT * FROM tool_status WHERE tool_id = $1 ORDER BY created_at DESC LIMIT 1"
-        return await db_manager.fetch_one(query, tool_id)
+        query = "UPDATE mcp_tool SET enabled = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2"
+        result = await db_manager.execute(query, enabled, tool_id)
+        return "UPDATE 1" in result
 
 
 class AssistantQueries:
     """Assistant related queries."""
     
     @staticmethod
-    async def create_assistant(
-        name: str,
-        description: str,
-        assistant_type: str,
-        intent_model: str = None,
-        max_tools: int = 5,
-        enabled: bool = True
-    ) -> Dict[str, Any]:
+    async def create_assistant(name: str, description: str = None) -> Dict[str, Any]:
         """Create a new assistant."""
         query = """
-            INSERT INTO assistant (name, description, type, intent_model, max_tools, enabled)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO assistant (name, description)
+            VALUES ($1, $2)
             RETURNING *
         """
-        return await db_manager.fetch_one(
-            query, name, description, assistant_type, intent_model, max_tools, enabled
-        )
+        return await db_manager.fetch_one(query, name, description)
     
     @staticmethod
     async def get_assistant_by_id(assistant_id: int) -> Optional[Dict[str, Any]]:
@@ -405,45 +442,50 @@ class AssistantQueries:
         return await db_manager.fetch_one(query, assistant_id)
     
     @staticmethod
-    async def get_assistant_by_name(name: str) -> Optional[Dict[str, Any]]:
-        """Get assistant by name."""
-        query = "SELECT * FROM assistant WHERE name = $1"
-        return await db_manager.fetch_one(query, name)
-    
-    @staticmethod
-    async def list_enabled_assistants() -> List[Dict[str, Any]]:
-        """List all enabled assistants."""
-        query = "SELECT * FROM assistant WHERE enabled = true ORDER BY created_at"
+    async def list_assistants() -> List[Dict[str, Any]]:
+        """List all assistants."""
+        query = "SELECT * FROM assistant ORDER BY created_at"
         return await db_manager.fetch_all(query)
-
-
-class AssistantToolQueries:
-    """Assistant-tool relationship queries."""
     
     @staticmethod
-    async def bind_tool_to_assistant(
+    async def update_assistant(
         assistant_id: int,
-        tool_id: int,
-        priority: int = 1
-    ) -> Dict[str, Any]:
-        """Bind a tool to an assistant."""
-        query = """
-            INSERT INTO assistant_tool (assistant_id, tool_id, priority)
-            VALUES ($1, $2, $3)
-            ON CONFLICT (assistant_id, tool_id) 
-            DO UPDATE SET priority = $3
+        name: str = None,
+        description: str = None
+    ) -> Optional[Dict[str, Any]]:
+        """Update assistant."""
+        updates = []
+        params = []
+        param_count = 1
+        
+        if name is not None:
+            updates.append(f"name = ${param_count}")
+            params.append(name)
+            param_count += 1
+        
+        if description is not None:
+            updates.append(f"description = ${param_count}")
+            params.append(description)
+            param_count += 1
+        
+        if not updates:
+            return await AssistantQueries.get_assistant_by_id(assistant_id)
+        
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(assistant_id)
+        
+        query = f"""
+            UPDATE assistant 
+            SET {', '.join(updates)}
+            WHERE id = ${param_count}
             RETURNING *
         """
-        return await db_manager.fetch_one(query, assistant_id, tool_id, priority)
+        
+        return await db_manager.fetch_one(query, *params)
     
     @staticmethod
-    async def get_assistant_tools(assistant_id: int) -> List[Dict[str, Any]]:
-        """Get all tools for an assistant."""
-        query = """
-            SELECT t.*, at.priority
-            FROM mcp_tool t
-            JOIN assistant_tool at ON t.id = at.tool_id
-            WHERE at.assistant_id = $1 AND t.enabled = true
-            ORDER BY at.priority, t.created_at
-        """
-        return await db_manager.fetch_all(query, assistant_id)
+    async def delete_assistant(assistant_id: int) -> bool:
+        """Delete assistant."""
+        query = "DELETE FROM assistant WHERE id = $1"
+        result = await db_manager.execute(query, assistant_id)
+        return "DELETE 1" in result

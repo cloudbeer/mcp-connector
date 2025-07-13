@@ -46,6 +46,13 @@ export interface UpdateApiKeyRequest {
 // MCP Tool Types
 export type ConnectionType = 'stdio' | 'http' | 'sse';
 
+export interface ServerGroupInfo {
+  id: number;
+  name: string;
+  description?: string;
+  max_tools: number;
+}
+
 export interface McpTool {
   id: number;
   name: string;
@@ -62,16 +69,15 @@ export interface McpTool {
   disabled: boolean;
   auto_approve?: string[];
   enabled: boolean;
-  group_id: number;
   created_at: string;
   updated_at: string;
+  groups?: ServerGroupInfo[];
 }
 
 export interface CreateMcpToolRequest {
   name: string;
   description?: string;
   connection_type: ConnectionType;
-  group_id: number;
   command?: string;
   args?: string[];
   env?: Record<string, string>;
@@ -83,13 +89,14 @@ export interface CreateMcpToolRequest {
   disabled?: boolean;
   auto_approve?: string[];
   enabled?: boolean;
+  group_id?: number;
+}
 }
 
 export interface UpdateMcpToolRequest {
   name?: string;
   description?: string;
   connection_type?: ConnectionType;
-  group_id?: number;
   command?: string;
   args?: string[];
   env?: Record<string, string>;
@@ -101,6 +108,8 @@ export interface UpdateMcpToolRequest {
   disabled?: boolean;
   auto_approve?: string[];
   enabled?: boolean;
+  group_id?: number;
+}
 }
 
 // Server Group Types

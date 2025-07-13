@@ -2,7 +2,7 @@
 API Key management endpoints.
 """
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
@@ -15,6 +15,7 @@ from app.db.api_key_queries import (
     APIKeyQueries, APIKeyAssistantQueries, APIKeyUsageLogQueries
 )
 from app.db.queries import AssistantQueries
+from app.utils.datetime_utils import parse_datetime
 
 router = APIRouter()
 security = HTTPBearer()
@@ -32,7 +33,9 @@ async def get_current_api_key(credentials: HTTPAuthorizationCredentials = Depend
     if key_record["is_disabled"]:
         raise HTTPException(status_code=401, detail="API key is disabled")
     
-    if key_record["expires_at"] and key_record["expires_at"] < datetime.utcnow():
+    # 使用不带时区的 datetime 进行比较，与数据库保持一致
+    now = datetime.utcnow()
+    if key_record["expires_at"] and key_record["expires_at"] < now:
         raise HTTPException(status_code=401, detail="API key has expired")
     
     return key_record

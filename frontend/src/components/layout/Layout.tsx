@@ -10,6 +10,7 @@ import {
   UserOutlined,
   LogoutOutlined,
   SettingOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -48,6 +49,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       key: '/server-groups',
       icon: <ClusterOutlined />,
       label: 'Server Groups',
+    },
+    {
+      key: '/assistants',
+      icon: <RobotOutlined />,
+      label: 'Assistants',
     },
   ];
 
