@@ -1,6 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { Empty, Spin } from 'antd';
-import { v4 as uuidv4 } from 'uuid';
+import { Empty } from 'antd';
 import MessageBubble from './MessageBubble';
 import type { MessageListProps, ChatMessage } from '@/types/chat';
 import './ChatStyles.css';
@@ -23,7 +22,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, streamingMessage })
     // Create a streaming message object if one exists
     const streamingMessageObj: ChatMessage | null = streamingMessage
         ? {
-            id: 'streaming-' + uuidv4(),
+            id: 'streaming', // Use a fixed ID to prevent re-rendering
             role: 'assistant',
             content: streamingMessage,
             timestamp: new Date().toISOString(),

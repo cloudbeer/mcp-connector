@@ -7,6 +7,8 @@ import uuid
 from typing import Dict, Any, List, Tuple, Optional
 from strands import Agent
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,8 +59,28 @@ class SessionManager:
         
         logger.info(f"Creating new session {session_id} for assistant {assistant_id}")
         
+        # 创建 Agent with model based on environment variables
+        model = self._create_model_from_env()
+        
+        # Log model configuration details
+        if model:
+            model_type = model.__class__.__name__
+            model_id = getattr(model, 'model_id', 'unknown')
+            logger.info(f"Creating Agent with model provider: {model_type}, model ID: {model_id}")
+            
+            # Log additional model parameters if available
+            params = {}
+            if hasattr(model, 'params'):
+                params = model.params
+            elif hasattr(model, 'temperature'):
+                params['temperature'] = model.temperature
+            if params:
+                logger.info(f"Model parameters: {params}")
+        else:
+            logger.warning("No model provider configured, using default model")
+        
         # 创建 Agent
-        agent = Agent(tools=tools)
+        agent = Agent(tools=tools, model=model)
         
         # 存储会话数据
         self.sessions[session_id] = {
@@ -193,6 +215,108 @@ class SessionManager:
             self.close_session(session_id)
         
         return len(session_ids)
+    
+    def _create_model_from_env(self):
+        """Create a model instance based on environment variables."""
+        # Get model provider from settings
+        model_provider = settings.model_provider.lower()
+        model_name = settings.model_name
+        
+        try:
+            if model_provider == "openai":
+                # OpenAI model configuration
+                from strands.models.openai import OpenAIModel
+                
+                api_key = settings.openai_api_key
+                base_url = settings.openai_base_url
+                
+                if not api_key:
+                    logger.warning("OPENAI_API_KEY not set, using default model")
+                    return None
+                
+                logger.info(f"Creating OpenAI model: {model_name}")
+                return OpenAIModel(
+                    client_args={
+                        "api_key": api_key,
+                        "base_url": base_url,
+                    },
+                    model_id=model_name,
+                    params={
+                        "temperature": 0.7,  # Default temperature
+                        "max_tokens": 1000,  # Default max tokens
+                    }
+                )
+                
+            elif model_provider == "anthropic":
+                # Anthropic model configuration
+                from strands.models.anthropic import AnthropicModel
+                
+                api_key = settings.anthropic_api_key
+                
+                if not api_key:
+                    logger.warning("ANTHROPIC_API_KEY not set, using default model")
+                    return None
+                
+                logger.info(f"Creating Anthropic model: {model_name}")
+                return AnthropicModel(
+                    client_args={
+                        "api_key": api_key,
+                    },
+                    model_id=model_name,
+                    params={
+                        "temperature": 0.7,  # Default temperature
+                        "max_tokens": 1000,  # Default max tokens
+                    }
+                )
+                
+            elif model_provider == "bedrock":
+                # AWS Bedrock model configuration
+                from strands.models import BedrockModel
+                
+                aws_access_key = settings.aws_access_key_id
+                aws_secret_key = settings.aws_secret_access_key
+                aws_region = settings.aws_region
+                
+                logger.info(f"Creating AWS Bedrock model: {model_name}")
+                
+                # Create client args based on available credentials
+                client_args = {}
+                if aws_region:
+                    client_args["region_name"] = aws_region
+                
+                # Only add credentials if explicitly provided
+                if aws_access_key and aws_secret_key:
+                    client_args["aws_access_key_id"] = aws_access_key
+                    client_args["aws_secret_access_key"] = aws_secret_key
+                    logger.info("Using provided AWS credentials")
+                else:
+                    logger.info("Using default AWS credential provider chain")
+                
+                return BedrockModel(
+                    model_id=model_name,
+                    temperature=0.7,  # Default temperature
+                    top_p=0.8,  # Default top_p
+                    client_args=client_args
+                )
+                
+            else:
+                logger.warning(f"Unsupported model provider: {model_provider}, using default model")
+                return None
+                
+        except ImportError as e:
+            logger.warning(f"Failed to import model for provider {model_provider}: {e}")
+            logger.warning("Make sure to install the required packages:")
+            if model_provider == "openai":
+                logger.warning("pip install 'strands-agents[openai]'")
+            elif model_provider == "anthropic":
+                logger.warning("pip install 'strands-agents[anthropic]'")
+            elif model_provider == "bedrock":
+                logger.warning("pip install 'strands-agents[bedrock]'")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error creating model for provider {model_provider}: {e}")
+            return None
 
 
 # 全局会话管理器实例

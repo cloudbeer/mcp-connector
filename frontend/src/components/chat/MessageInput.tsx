@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Input, Button, Form } from 'antd';
+import { Input, Button, Form, Tooltip } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
 import type { MessageInputProps } from '@/types/chat';
 import './ChatStyles.css';
@@ -15,6 +15,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
     disabled = false
 }) => {
     const [message, setMessage] = useState('');
+    const [isComposing, setIsComposing] = useState(false);
     const [form] = Form.useForm();
     const textAreaRef = useRef<any>(null);
 
@@ -42,9 +43,19 @@ const MessageInput: React.FC<MessageInputProps> = ({
         }
     };
 
+    // Handle IME composition events
+    const handleCompositionStart = () => {
+        setIsComposing(true);
+    };
+
+    const handleCompositionEnd = () => {
+        setIsComposing(false);
+    };
+
     // Handle pressing Enter to send (but Shift+Enter for new line)
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        // Only handle Enter key press when not in IME composition mode
+        if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
             e.preventDefault();
             handleSubmit();
         }
@@ -62,10 +73,12 @@ const MessageInput: React.FC<MessageInputProps> = ({
                         ref={textAreaRef}
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        placeholder="Type your message..."
+                        placeholder={isComposing ? "Press Enter to confirm composition..." : "Type your message..."}
                         autoSize={{ minRows: 1, maxRows: 4 }}
                         disabled={isLoading || disabled}
                         onKeyDown={handleKeyDown}
+                        onCompositionStart={handleCompositionStart}
+                        onCompositionEnd={handleCompositionEnd}
                         style={{
                             borderRadius: '8px',
                             resize: 'none',
@@ -74,20 +87,27 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     />
                 </Form.Item>
                 <Form.Item style={{ marginBottom: 0 }}>
-                    <Button
-                        type="primary"
-                        htmlType="submit"
-                        icon={<SendOutlined />}
-                        loading={isLoading}
-                        disabled={!message.trim() || disabled}
-                        style={{
-                            borderRadius: '8px',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}
-                    />
+                    <Tooltip
+                        title={isComposing ?
+                            "Finish IME composition before sending" :
+                            "Send message (or press Enter)"
+                        }
+                    >
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            icon={<SendOutlined />}
+                            loading={isLoading}
+                            disabled={!message.trim() || disabled}
+                            style={{
+                                borderRadius: '8px',
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        />
+                    </Tooltip>
                 </Form.Item>
             </Form>
             {isLoading && (
@@ -100,6 +120,7 @@ const MessageInput: React.FC<MessageInputProps> = ({
                     Assistant is typing...
                 </div>
             )}
+
         </div>
     );
 };

@@ -3,7 +3,6 @@ import {
   Modal,
   Form,
   Input,
-  Select,
   Button,
   Space,
   Alert,
@@ -14,7 +13,6 @@ import {
   Row,
   Col,
   Statistic,
-  message,
 } from 'antd';
 import {
   ImportOutlined,
@@ -22,18 +20,15 @@ import {
   ExclamationCircleOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
-import type { ServerGroup } from '@/types/api.types';
 
 const { TextArea } = Input;
-const { Option } = Select;
 const { Title, Text } = Typography;
 
 interface BatchImportModalProps {
   visible: boolean;
   onCancel: () => void;
   onSuccess: () => void;
-  groups: ServerGroup[];
-  onImport: (data: { mcpServers: any; group_id: number }) => Promise<any>;
+  onImport: (data: { mcpServers: any }) => Promise<any>;
   loading: boolean;
 }
 
@@ -41,7 +36,6 @@ const BatchImportModal: React.FC<BatchImportModalProps> = ({
   visible,
   onCancel,
   onSuccess,
-  groups,
   onImport,
   loading,
 }) => {
@@ -90,13 +84,12 @@ Example format:
     setStep('preview');
   };
 
-  const handleImport = async (values: { group_id: number }) => {
+  const handleImport = async () => {
     if (!parsedData) return;
 
     try {
       const result = await onImport({
         mcpServers: parsedData.mcpServers,
-        group_id: values.group_id,
       });
 
       setImportResult(result.data);
@@ -128,20 +121,6 @@ Example format:
   const renderInputStep = () => (
     <div style={{ minHeight: 450 }}>
       <Form form={form} layout="vertical">
-        <Form.Item
-          name="group_id"
-          label="Target Server Group"
-          rules={[{ required: true, message: 'Please select a server group' }]}
-        >
-          <Select placeholder="Select server group">
-            {groups.map(group => (
-              <Option key={group.id} value={group.id}>
-                {group.name} ({group.max_tools} max tools)
-              </Option>
-            ))}
-          </Select>
-        </Form.Item>
-
         <Form.Item label={
           <Space>
             <span>JSON Configuration</span>
@@ -199,7 +178,11 @@ Example format:
                     </Col>
                     <Col span={8}>
                       <Space>
-                        <Tag color="blue">{config.command}</Tag>
+                        {config.url ? (
+                          <Tag color="green">{config.url}</Tag>
+                        ) : (
+                          <Tag color="blue">{config.command}</Tag>
+                        )}
                         {config.disabled && <Tag color="red">Disabled</Tag>}
                       </Space>
                     </Col>
@@ -337,7 +320,7 @@ Example format:
           <Button
             key="import"
             type="primary"
-            onClick={() => form.submit()}
+            onClick={handleImport}
             loading={loading}
             icon={<ImportOutlined />}
           >
@@ -365,9 +348,8 @@ Example format:
       footer={getFooterButtons()}
       width={900}
       style={{ top: 20 }}
-      destroyOnClose
     >
-      <Form form={form} onFinish={handleImport}>
+      <Form form={form}>
         {step === 'input' && renderInputStep()}
         {step === 'preview' && renderPreviewStep()}
         {step === 'result' && renderResultStep()}

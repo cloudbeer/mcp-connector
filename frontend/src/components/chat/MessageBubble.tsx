@@ -1,6 +1,6 @@
 import React from 'react';
 import { Typography, Card, Space, Tag } from 'antd';
-import { UserOutlined, RobotOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { UserOutlined, RobotOutlined, InfoCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { tomorrow } from 'react-syntax-highlighter/dist/esm/styles/prism';
@@ -8,6 +8,148 @@ import type { MessageBubbleProps } from '@/types/chat';
 import './ChatStyles.css';
 
 const { Text } = Typography;
+
+/**
+ * Renders message content with special handling for <thinking> tags
+ */
+const renderMessageContent = (content: string) => {
+    // Regular expression to match <thinking>...</thinking> tags
+    const thinkingRegex = /<thinking>([\s\S]*?)<\/thinking>/g;
+
+    // Check if there are any thinking tags
+    const hasThinkingTags = thinkingRegex.test(content);
+
+    // Reset regex state after test
+    thinkingRegex.lastIndex = 0;
+
+    // If no thinking tags, just render the content as markdown
+    if (!hasThinkingTags) {
+        return (
+            <ReactMarkdown
+                components={{
+                    code({ node, inline, className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        return !inline && match ? (
+                            <SyntaxHighlighter
+                                style={tomorrow}
+                                language={match[1]}
+                                PreTag="div"
+                                {...props}
+                            >
+                                {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                        ) : (
+                            <code className={className} {...props}>
+                                {children}
+                            </code>
+                        );
+                    }
+                }}
+            >
+                {content}
+            </ReactMarkdown>
+        );
+    }
+
+    // Process content with thinking tags
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    // Find all thinking tags and their positions
+    while ((match = thinkingRegex.exec(content)) !== null) {
+        // Add text before the thinking tag
+        if (match.index > lastIndex) {
+            parts.push({
+                type: 'text',
+                content: content.substring(lastIndex, match.index)
+            });
+        }
+
+        // Add the thinking content
+        parts.push({
+            type: 'thinking',
+            content: match[1] // The content inside the thinking tags
+        });
+
+        lastIndex = match.index + match[0].length;
+    }
+
+    // Add any remaining text after the last thinking tag
+    if (lastIndex < content.length) {
+        parts.push({
+            type: 'text',
+            content: content.substring(lastIndex)
+        });
+    }
+
+    // Render each part
+    return (
+        <>
+            {parts.map((part, index) => {
+                if (part.type === 'thinking') {
+                    return (
+                        <div key={`thinking-${index}`} className="thinking-content">
+                            <LoadingOutlined className="loading-icon" />
+                            <div style={{ width: '100%' }}>
+                                <ReactMarkdown
+                                    components={{
+                                        code({ node, inline, className, children, ...props }: any) {
+                                            const match = /language-(\w+)/.exec(className || '');
+                                            return !inline && match ? (
+                                                <SyntaxHighlighter
+                                                    style={tomorrow}
+                                                    language={match[1]}
+                                                    PreTag="div"
+                                                    {...props}
+                                                >
+                                                    {String(children).replace(/\n$/, '')}
+                                                </SyntaxHighlighter>
+                                            ) : (
+                                                <code className={className} {...props}>
+                                                    {children}
+                                                </code>
+                                            );
+                                        }
+                                    }}
+                                >
+                                    {part.content}
+                                </ReactMarkdown>
+                            </div>
+                        </div>
+                    );
+                } else {
+                    return (
+                        <ReactMarkdown
+                            key={`text-${index}`}
+                            components={{
+                                code({ node, inline, className, children, ...props }: any) {
+                                    const match = /language-(\w+)/.exec(className || '');
+                                    return !inline && match ? (
+                                        <SyntaxHighlighter
+                                            style={tomorrow}
+                                            language={match[1]}
+                                            PreTag="div"
+                                            {...props}
+                                        >
+                                            {String(children).replace(/\n$/, '')}
+                                        </SyntaxHighlighter>
+                                    ) : (
+                                        <code className={className} {...props}>
+                                            {children}
+                                        </code>
+                                    );
+                                }
+                            }}
+                        >
+                            {part.content}
+                        </ReactMarkdown>
+                    );
+                }
+            })}
+        </>
+    );
+};
 
 /**
  * Component to display a single message in the chat interface
@@ -86,30 +228,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
 
                         {/* Message content with markdown support */}
                         <div className="message-content">
-                            <ReactMarkdown
-                                components={{
-                                    // Add syntax highlighting for code blocks
-                                    code({ node, inline, className, children, ...props }: any) {
-                                        const match = /language-(\w+)/.exec(className || '');
-                                        return !inline && match ? (
-                                            <SyntaxHighlighter
-                                                style={tomorrow}
-                                                language={match[1]}
-                                                PreTag="div"
-                                                {...props}
-                                            >
-                                                {String(children).replace(/\n$/, '')}
-                                            </SyntaxHighlighter>
-                                        ) : (
-                                            <code className={className} {...props}>
-                                                {children}
-                                            </code>
-                                        );
-                                    }
-                                }}
-                            >
-                                {message.content}
-                            </ReactMarkdown>
+                            {renderMessageContent(message.content)}
                         </div>
                     </Space>
                 </Card>

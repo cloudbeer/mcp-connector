@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Select, Spin, Typography, Space } from 'antd';
 import { RobotOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
@@ -17,10 +17,10 @@ const AssistantSelector: React.FC<AssistantSelectorProps> = ({
     selectedAssistantId,
     disabled = false
 }) => {
-    // Fetch available assistants
+    // Fetch available assistants accessible to the current API key
     const { data: assistantsData, isLoading, error } = useQuery({
-        queryKey: ['assistants', 'enabled'],
-        queryFn: () => AssistantService.listAssistants(true), // Only fetch enabled assistants
+        queryKey: ['my-assistants'],
+        queryFn: () => AssistantService.getMyAssistants(), // Get assistants accessible to the current API key
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 

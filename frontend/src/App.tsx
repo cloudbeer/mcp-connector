@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConfigProvider, theme } from 'antd';
-import { APP_TITLE } from '@/constants';
+// import { APP_TITLE } from '@/constants';
 import Layout from '@/components/layout/Layout';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
@@ -12,7 +12,6 @@ import ApiKeyDetail from '@/pages/ApiKeyDetail';
 import ApiKeyEdit from '@/pages/ApiKeyEdit';
 import McpTools from '@/pages/McpTools';
 import McpToolDetail from '@/pages/McpToolDetail';
-import ServerGroups from '@/pages/ServerGroups';
 import Assistants from '@/pages/Assistants';
 import AssistantDetail from '@/pages/AssistantDetail';
 import AssistantEdit from '@/pages/AssistantEdit';
@@ -83,7 +82,6 @@ const App: React.FC = () => {
                         <Route path="/api-keys/:id/edit" element={<ApiKeyEdit />} />
                         <Route path="/mcp-tools" element={<McpTools />} />
                         <Route path="/mcp-tools/:id" element={<McpToolDetail />} />
-                        <Route path="/server-groups" element={<ServerGroups />} />
                         <Route path="/assistants" element={<Assistants />} />
                         <Route path="/assistants/:id" element={<AssistantDetail />} />
                         <Route path="/assistants/:id/edit" element={<AssistantEdit />} />

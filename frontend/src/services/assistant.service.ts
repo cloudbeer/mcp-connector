@@ -3,12 +3,17 @@ import type { ApiResponse } from '@/types/api.types';
 import type { Assistant, AssistantWithTools, CreateAssistantRequest, UpdateAssistantRequest } from '@/types/assistant.types';
 
 export class AssistantService {
-  // List assistants
+  // List assistants (requires management permission)
   static async listAssistants(enabledOnly = false): Promise<ApiResponse<Assistant[]>> {
     const params = new URLSearchParams();
     params.append('enabled_only', enabledOnly.toString());
-    
+
     return apiService.get(`/api/v1/assistants?${params.toString()}`);
+  }
+
+  // List assistants accessible to the current API key (works with assistant permission)
+  static async getMyAssistants(): Promise<ApiResponse<Assistant[]>> {
+    return apiService.get('/api/v1/my-assistants');
   }
 
   // Get specific assistant

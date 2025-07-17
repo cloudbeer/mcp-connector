@@ -197,9 +197,40 @@ class MCPServerManager:
         Returns:
             Agent instance or None if failed
         """
+
+        from strands_tools import calculator, current_time, http_request
+        # Add built-in tools to the list of tools
+        built_in_tools = [calculator, current_time, http_request]
+
+        # Import built-in tools from strands_tools package
+        try:
+            # Create model based on environment variables
+            model = self._create_model_from_env()
+            
+            # Log model configuration details
+            # if model:
+            #     model_type = model.__class__.__name__
+            #     model_id = getattr(model, 'model_id', 'unknown')
+            #     logger.info(f"Creating Agent with model provider: {model_type}, model ID: {model_id}")
+                
+            #     # Log additional model parameters if available
+            #     params = {}
+            #     if hasattr(model, 'params'):
+            #         params = model.params
+            #     elif hasattr(model, 'temperature'):
+            #         params['temperature'] = model.temperature
+            #     if params:
+            #         logger.info(f"Model parameters: {params}")
+            # else:
+            #     logger.warning("No model provider configured, using default model")
+        except Exception as e:
+            logger.error(f"Error creating model: {e}")
+            model = None
+        
+
         if not tool_ids:
             logger.warning("No tool IDs provided for agent creation")
-            return Agent()
+            return Agent(tools=built_in_tools, model=model)
             
         try:
             # 生成缓存键
@@ -237,12 +268,22 @@ class MCPServerManager:
                     logger.error(f"Error processing tool {tool_id}: {e}")
                     continue
             
+
+
             if not all_tools:
                 logger.warning("No tools available for agent creation")
-                return Agent()
+                return Agent(tools=built_in_tools, model=model)
             
-            # 创建 Agent
-            agent = Agent(tools=all_tools)
+            # Import built-in tools from strands_tools package
+            try:
+                all_tools.extend(built_in_tools)
+                
+                logger.info(f"Added built-in tools: calculator, current_time, http_request")
+            except ImportError as e:
+                logger.warning(f"Could not import built-in tools from strands_tools: {e}")
+            
+            # Create the agent with the model
+            agent = Agent(tools=all_tools, model=model)
             
             # 缓存 Agent
             self._agents_cache[cache_key] = agent
@@ -253,7 +294,7 @@ class MCPServerManager:
         except Exception as e:
             logger.error(f"Error creating agent with tools: {e}", exc_info=True)
             # 返回一个没有工具的 Agent，而不是 None
-            return Agent()
+            return Agent(tools=built_in_tools, model=model)
     
     async def _create_mcp_client(self, tool_config: Dict[str, Any]) -> MCPClient:
         """Create MCP client based on tool configuration."""
@@ -308,6 +349,113 @@ class MCPServerManager:
         sse_mcp_client = MCPClient(lambda: sse_client(url))
         
         return sse_mcp_client
+        
+    def _create_model_from_env(self):
+        """Create a model instance based on environment variables."""
+        import os
+        
+        # Get model provider from environment variables
+        model_provider = os.getenv("MODEL_PROVIDER", "openai").lower()
+        print("-------model_provider---------", model_provider)
+        model_name = os.getenv("MODEL_NAME", "gpt-4")
+        print("-------model_name---------", model_name)
+        
+        try:
+            if model_provider == "openai":
+                # OpenAI model configuration
+                from strands.models.openai import OpenAIModel
+                
+                api_key = os.getenv("OPENAI_API_KEY")
+                base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+                
+                if not api_key:
+                    logger.warning("OPENAI_API_KEY not set, using default model")
+                    return None
+                
+                logger.info(f"Creating OpenAI model: {model_name}")
+                return OpenAIModel(
+                    client_args={
+                        "api_key": api_key,
+                        "base_url": base_url,
+                    },
+                    model_id=model_name,
+                    params={
+                        "temperature": float(os.getenv("OPENAI_TEMPERATURE", "0.7")),
+                        "max_tokens": int(os.getenv("OPENAI_MAX_TOKENS", "1000")),
+                    }
+                )
+                
+            elif model_provider == "anthropic":
+                # Anthropic model configuration
+                from strands.models.anthropic import AnthropicModel
+                
+                api_key = os.getenv("ANTHROPIC_API_KEY")
+                
+                if not api_key:
+                    logger.warning("ANTHROPIC_API_KEY not set, using default model")
+                    return None
+                
+                logger.info(f"Creating Anthropic model: {model_name}")
+                return AnthropicModel(
+                    client_args={
+                        "api_key": api_key,
+                    },
+                    model_id=model_name,
+                    params={
+                        "temperature": float(os.getenv("ANTHROPIC_TEMPERATURE", "0.7")),
+                        "max_tokens": int(os.getenv("ANTHROPIC_MAX_TOKENS", "1000")),
+                    }
+                )
+                
+            elif model_provider == "bedrock":
+                # AWS Bedrock model configuration
+                from strands.models import BedrockModel
+                
+                aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
+                aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+                aws_region = os.getenv("AWS_REGION", "us-east-1")
+                
+                logger.info(f"Creating AWS Bedrock model: {model_name}")
+                logger.info(f"--aws_access_key-----{aws_access_key}---------")
+                
+                # Create client args based on available credentials
+                client_args = {}
+                if aws_region:
+                    client_args["region_name"] = aws_region
+                
+                # Only add credentials if explicitly provided
+                if aws_access_key and aws_secret_key:
+                    client_args["aws_access_key_id"] = aws_access_key
+                    client_args["aws_secret_access_key"] = aws_secret_key
+                    logger.info("Using provided AWS credentials")
+                else:
+                    logger.info("Using default AWS credential provider chain")
+                
+                return BedrockModel(
+                    model_id=model_name,
+                    temperature=float(os.getenv("BEDROCK_TEMPERATURE", "0.7")),
+                    top_p=float(os.getenv("BEDROCK_TOP_P", "0.8")),
+                    client_args=client_args
+                )
+                
+            else:
+                logger.warning(f"Unsupported model provider: {model_provider}, using default model")
+                return None
+                
+        except ImportError as e:
+            logger.warning(f"Failed to import model for provider {model_provider}: {e}")
+            logger.warning("Make sure to install the required packages:")
+            if model_provider == "openai":
+                logger.warning("pip install 'strands-agents[openai]'")
+            elif model_provider == "anthropic":
+                logger.warning("pip install 'strands-agents[anthropic]'")
+            elif model_provider == "bedrock":
+                logger.warning("pip install 'strands-agents[bedrock]'")
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error creating model for provider {model_provider}: {e}")
+            return None
 
 
 # Global MCP manager instance

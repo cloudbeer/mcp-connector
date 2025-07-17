@@ -46,12 +46,12 @@ export interface UpdateApiKeyRequest {
 // MCP Tool Types
 export type ConnectionType = 'stdio' | 'http' | 'sse';
 
-export interface ServerGroupInfo {
-  id: number;
-  name: string;
-  description?: string;
-  max_tools: number;
-}
+// export interface ServerGroupInfo {
+//   id: number;
+//   name: string;
+//   description?: string;
+//   max_tools: number;
+// }
 
 export interface McpTool {
   id: number;
@@ -71,7 +71,7 @@ export interface McpTool {
   enabled: boolean;
   created_at: string;
   updated_at: string;
-  groups?: ServerGroupInfo[];
+  // groups?: ServerGroupInfo[];
 }
 
 export interface CreateMcpToolRequest {
@@ -89,8 +89,7 @@ export interface CreateMcpToolRequest {
   disabled?: boolean;
   auto_approve?: string[];
   enabled?: boolean;
-  group_id?: number;
-}
+  // group_id?: number;
 }
 
 export interface UpdateMcpToolRequest {
@@ -108,31 +107,31 @@ export interface UpdateMcpToolRequest {
   disabled?: boolean;
   auto_approve?: string[];
   enabled?: boolean;
-  group_id?: number;
+  // group_id?: number;
 }
-}
+
 
 // Server Group Types
-export interface ServerGroup {
-  id: number;
-  name: string;
-  description?: string;
-  max_tools: number;
-  created_at: string;
-  updated_at: string;
-}
+// export interface ServerGroup {
+//   id: number;
+//   name: string;
+//   description?: string;
+//   max_tools: number;
+//   created_at: string;
+//   updated_at: string;
+// }
 
-export interface CreateServerGroupRequest {
-  name: string;
-  description?: string;
-  max_tools?: number;
-}
+// export interface CreateServerGroupRequest {
+//   name: string;
+//   description?: string;
+//   max_tools?: number;
+// }
 
-export interface UpdateServerGroupRequest {
-  name?: string;
-  description?: string;
-  max_tools?: number;
-}
+// export interface UpdateServerGroupRequest {
+//   name?: string;
+//   description?: string;
+//   max_tools?: number;
+// }
 
 // Assistant Types
 export interface Assistant {

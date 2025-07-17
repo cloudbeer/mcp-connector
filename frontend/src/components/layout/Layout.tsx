@@ -1,12 +1,11 @@
-import React, { useState } from 'react';
-import { Layout as AntLayout, Menu, Button, Dropdown, Avatar, Space, Typography } from 'antd';
+import React, { useState, useMemo } from 'react';
+import { Layout as AntLayout, Menu, Button, Dropdown, Avatar, Space, Typography, Spin } from 'antd';
 import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   DashboardOutlined,
   KeyOutlined,
   ToolOutlined,
-  ClusterOutlined,
   UserOutlined,
   LogoutOutlined,
   SettingOutlined,
@@ -15,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
+import { usePermissions } from '@/hooks/usePermissions';
 import { APP_TITLE } from '@/constants';
 
 const { Header, Sider, Content } = AntLayout;
@@ -28,40 +28,49 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { logout, userData } = useAuth();
 
-  const menuItems = [
+  // Get user permissions
+  const { canManage } = usePermissions();
+
+  // Define all menu items
+  const allMenuItems = [
     {
       key: '/dashboard',
       icon: <DashboardOutlined />,
       label: 'Dashboard',
+      requiresManage: true,
     },
     {
       key: '/api-keys',
       icon: <KeyOutlined />,
       label: 'API Keys',
+      requiresManage: true,
     },
     {
       key: '/mcp-tools',
       icon: <ToolOutlined />,
       label: 'MCP Tools',
-    },
-    {
-      key: '/server-groups',
-      icon: <ClusterOutlined />,
-      label: 'Server Groups',
+      requiresManage: true,
     },
     {
       key: '/assistants',
       icon: <RobotOutlined />,
       label: 'Assistants',
+      requiresManage: true,
     },
     {
       key: '/chat',
       icon: <MessageOutlined />,
       label: 'Chat',
+      requiresManage: false,
     },
   ];
+
+  // Filter menu items based on permissions
+  const menuItems = useMemo(() => {
+    return allMenuItems.filter(item => !item.requiresManage || canManage);
+  }, [canManage]);
 
   const handleMenuClick = (key: string) => {
     navigate(key);
@@ -146,7 +155,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Button type="text" style={{ height: 'auto', padding: '4px 8px' }}>
                 <Space>
                   <Avatar size="small" icon={<UserOutlined />} />
-                  <span>Admin</span>
+                  <span>{userData?.name || 'User'}</span>
                 </Space>
               </Button>
             </Dropdown>

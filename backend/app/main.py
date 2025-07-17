@@ -3,7 +3,12 @@ FastAPI main application for MCP Connector.
 """
 import logging
 import asyncio
+import os
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -87,9 +92,6 @@ app.include_router(mcp_tools.router, prefix="/api/v1", tags=["mcp-tools"])
 from app.api.v1 import api_keys
 app.include_router(api_keys.router, prefix="/api/v1", tags=["api-keys"])
 
-# Import and include server groups router
-from app.api.v1 import server_groups
-app.include_router(server_groups.router, prefix="/api/v1", tags=["server-groups"])
 
 # Import and include MCP servers router
 from app.api.v1 import mcp_servers
@@ -106,6 +108,10 @@ app.include_router(openai_compatible.router, tags=["openai-compatible"])
 # Import and include sessions router
 from app.api.v1 import sessions
 app.include_router(sessions.router, prefix="/api/v1", tags=["sessions"])
+
+# Import and include my assistants router
+from app.api.v1 import my_assistants
+app.include_router(my_assistants.router, prefix="/api/v1", tags=["my-assistants"])
 
 
 @app.get("/")

@@ -8,7 +8,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.models.mcp_tool import (
     MCPTool, MCPToolCreate, MCPToolUpdate, MCPToolResponse, MCPToolListResponse
 )
-from app.db.queries import MCPToolQueries, ServerGroupQueries
+from app.db.queries import MCPToolQueries
 from app.core.auth import manage_auth
 
 router = APIRouter()
@@ -81,23 +81,37 @@ async def export_tools_config(
         # Convert to MCP servers format
         mcp_servers = {}
         for tool in tools:
-            server_config = {
-                "command": tool["command"],
-                "args": tool["args"] or [],
-                "env": tool["env"] or {},
-                "autoApprove": tool["auto_approve"] or [],
-                "disabled": tool["disabled"] or not tool["enabled"]
-            }
+            connection_type = tool["connection_type"]
+            
+            # Create server config based on connection type
+            if connection_type in ["http", "sse"]:
+                # For HTTP/SSE connections, use URL
+                server_config = {
+                    "url": tool["url"],
+                    "args": tool["args"] or [],
+                    "env": tool["env"] or {},
+                    "autoApprove": tool["auto_approve"] or [],
+                    "disabled": tool["disabled"] or not tool["enabled"]
+                }
+            else:
+                # For stdio connections, use command
+                server_config = {
+                    "command": tool["command"],
+                    "args": tool["args"] or [],
+                    "env": tool["env"] or {},
+                    "autoApprove": tool["auto_approve"] or [],
+                    "disabled": tool["disabled"] or not tool["enabled"]
+                }
             
             # Remove empty fields to keep JSON clean
-            if not server_config["args"]:
-                del server_config["args"]
-            if not server_config["env"]:
-                del server_config["env"]
-            if not server_config["autoApprove"]:
-                del server_config["autoApprove"]
-            if not server_config["disabled"]:
-                del server_config["disabled"]
+            if not server_config.get("args"):
+                server_config.pop("args", None)
+            if not server_config.get("env"):
+                server_config.pop("env", None)
+            if not server_config.get("autoApprove"):
+                server_config.pop("autoApprove", None)
+            if not server_config.get("disabled"):
+                server_config.pop("disabled", None)
             
             mcp_servers[tool["name"]] = server_config
         
@@ -156,16 +170,30 @@ async def batch_import_tools(
                 existing_names.add(unique_name.lower())
                 
                 # Parse server configuration
+                url = server_config.get("url")
                 command = server_config.get("command")
                 args = server_config.get("args", [])
                 env = server_config.get("env", {})
                 auto_approve = server_config.get("autoApprove", [])
                 disabled = server_config.get("disabled", False)
                 
-                # Determine connection type based on command
+                # Determine connection type based on configuration
                 connection_type = "stdio"  # Default for most MCP servers
-                if command in ["http", "https"]:
+                
+                # Check if URL is provided (HTTP-based)
+                if url:
+                    if "sse" in str(url).lower() or "sse" in str(args).lower():
+                        connection_type = "sse"
+                    else:
+                        connection_type = "http"
+                    # For HTTP/SSE connections, command should be null
+                    command = None
+                # Check command for HTTP/HTTPS
+                elif command in ["http", "https"]:
                     connection_type = "http"
+                    # For HTTP connections, command should be null
+                    command = None
+                # Check args for SSE
                 elif "sse" in str(args).lower():
                     connection_type = "sse"
                 
@@ -177,6 +205,8 @@ async def batch_import_tools(
                     command=command,
                     args=args,
                     env=env,
+                    url=url,  # Add URL parameter
+                    headers={},  # Default empty headers
                     timeout=30,  # Default timeout
                     retry_count=3,  # Default retry count
                     retry_delay=5,  # Default retry delay

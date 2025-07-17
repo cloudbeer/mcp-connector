@@ -1,0 +1,194 @@
+"""
+Built-in tools for assistants.
+"""
+import datetime
+import json
+import logging
+import requests
+from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
+
+def current_time_tool(format: str = "%Y-%m-%d %H:%M:%S") -> str:
+    """
+    Get the current date and time.
+    
+    Args:
+        format: The format string for the datetime (default: "%Y-%m-%d %H:%M:%S")
+        
+    Returns:
+        str: The current date and time formatted according to the specified format
+    """
+    try:
+        now = datetime.datetime.now()
+        return now.strftime(format)
+    except Exception as e:
+        logger.error(f"Error in current_time_tool: {e}")
+        return f"Error getting current time: {str(e)}"
+
+def calculator_tool(expression: str) -> str:
+    """
+    Evaluate a mathematical expression.
+    
+    Args:
+        expression: The mathematical expression to evaluate
+        
+    Returns:
+        str: The result of the evaluation
+    """
+    try:
+        # Use eval with restricted globals for safety
+        allowed_names = {
+            "abs": abs,
+            "round": round,
+            "min": min,
+            "max": max,
+            "sum": sum,
+            "pow": pow,
+            "int": int,
+            "float": float,
+        }
+        
+        # Add math functions
+        import math
+        for name in dir(math):
+            if not name.startswith("_"):
+                allowed_names[name] = getattr(math, name)
+        
+        # Evaluate the expression
+        result = eval(expression, {"__builtins__": {}}, allowed_names)
+        return str(result)
+    except Exception as e:
+        logger.error(f"Error in calculator_tool: {e}")
+        return f"Error evaluating expression: {str(e)}"
+
+def http_request_tool(
+    url: str,
+    method: str = "GET",
+    headers: Optional[Dict[str, str]] = None,
+    params: Optional[Dict[str, str]] = None,
+    data: Optional[str] = None,
+    timeout: int = 10
+) -> str:
+    """
+    Make an HTTP request to a specified URL.
+    
+    Args:
+        url: The URL to send the request to
+        method: The HTTP method to use (default: "GET")
+        headers: Optional headers to include in the request
+        params: Optional query parameters
+        data: Optional request body data (as JSON string)
+        timeout: Request timeout in seconds (default: 10)
+        
+    Returns:
+        str: The response from the server
+    """
+    try:
+        # Validate method
+        method = method.upper()
+        if method not in ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"]:
+            return f"Error: Unsupported HTTP method '{method}'"
+        
+        # Prepare request arguments
+        request_args = {
+            "url": url,
+            "headers": headers or {},
+            "params": params or {},
+            "timeout": timeout
+        }
+        
+        # Add data if provided
+        if data and method in ["POST", "PUT"]:
+            try:
+                # Try to parse as JSON
+                json_data = json.loads(data)
+                request_args["json"] = json_data
+            except json.JSONDecodeError:
+                # Use as raw data
+                request_args["data"] = data
+        
+        # Make the request
+        response = requests.request(method, **request_args)
+        
+        # Prepare response
+        result = {
+            "status_code": response.status_code,
+            "headers": dict(response.headers),
+            "content": response.text[:10000]  # Limit content size
+        }
+        
+        return json.dumps(result, indent=2)
+    except Exception as e:
+        logger.error(f"Error in http_request_tool: {e}")
+        return f"Error making HTTP request: {str(e)}"
+
+# Define tool specifications
+BUILT_IN_TOOLS = [
+    {
+        "name": "current_time",
+        "description": "Get the current date and time",
+        "function": current_time_tool,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "format": {
+                    "type": "string",
+                    "description": "The format string for the datetime (default: '%Y-%m-%d %H:%M:%S')"
+                }
+            },
+            "required": []
+        }
+    },
+    {
+        "name": "calculator",
+        "description": "Evaluate a mathematical expression",
+        "function": calculator_tool,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "expression": {
+                    "type": "string",
+                    "description": "The mathematical expression to evaluate"
+                }
+            },
+            "required": ["expression"]
+        }
+    },
+    {
+        "name": "http_request",
+        "description": "Make an HTTP request to a specified URL",
+        "function": http_request_tool,
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "url": {
+                    "type": "string",
+                    "description": "The URL to send the request to"
+                },
+                "method": {
+                    "type": "string",
+                    "description": "The HTTP method to use (default: 'GET')",
+                    "enum": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"]
+                },
+                "headers": {
+                    "type": "object",
+                    "description": "Optional headers to include in the request"
+                },
+                "params": {
+                    "type": "object",
+                    "description": "Optional query parameters"
+                },
+                "data": {
+                    "type": "string",
+                    "description": "Optional request body data (as JSON string)"
+                },
+                "timeout": {
+                    "type": "integer",
+                    "description": "Request timeout in seconds (default: 10)"
+                }
+            },
+            "required": ["url"]
+        }
+    }
+]

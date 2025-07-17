@@ -69,6 +69,23 @@
     background-color: transparent;
 }
 
+/* Thinking content styles */
+.thinking-content {
+    background-color: #f0f0f0;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-style: italic;
+    color: #666;
+    display: flex;
+    align-items: center;
+}
+
+.thinking-content .loading-icon {
+    margin-right: 8px;
+    color: #1890ff;
+}
+
 /* Message input styles */
 .message-input {
     padding: 12px;
@@ -157,5 +174,10 @@
 
     .message-content code {
         background-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .thinking-content {
+        background-color: #262626;
+        color: #a6a6a6;
     }
 }

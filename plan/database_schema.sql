@@ -4,16 +4,6 @@
 -- 启用 pgvector 扩展
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- 服务器分组表
-CREATE TABLE server_group (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    description TEXT,
-    max_tools INTEGER DEFAULT 10,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
 -- MCP 工具配置表
 CREATE TABLE mcp_tool (
     id SERIAL PRIMARY KEY,
@@ -36,9 +26,6 @@ CREATE TABLE mcp_tool (
     retry_delay INTEGER DEFAULT 5,
     disabled BOOLEAN DEFAULT false, -- 是否禁用
     auto_approve JSONB, -- 自动批准的操作列表
-    
-    -- 分组关联
-    group_id INTEGER REFERENCES server_group(id),
     
     -- 状态
     enabled BOOLEAN DEFAULT true,
@@ -104,7 +91,6 @@ CREATE TABLE tool_vector (
 );
 
 -- 创建索引
-CREATE INDEX idx_mcp_tool_group_id ON mcp_tool(group_id);
 CREATE INDEX idx_mcp_tool_enabled ON mcp_tool(enabled);
 CREATE INDEX idx_tool_status_tool_id ON tool_status(tool_id);
 CREATE INDEX idx_tool_status_status ON tool_status(status);
@@ -126,7 +112,6 @@ END;
 $$ language 'plpgsql';
 
 -- 为需要的表添加更新时间戳触发器
-CREATE TRIGGER update_server_group_updated_at BEFORE UPDATE ON server_group FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_mcp_tool_updated_at BEFORE UPDATE ON mcp_tool FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_assistant_updated_at BEFORE UPDATE ON assistant FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

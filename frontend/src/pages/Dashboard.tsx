@@ -1,17 +1,15 @@
 import React from 'react';
-import { 
-  Row, 
-  Col, 
-  Card, 
-  Statistic, 
-  Typography, 
-  Space, 
-  Button, 
-  Alert, 
+import {
+  Row,
+  Col,
+  Card,
+  Statistic,
+  Typography,
+  Space,
+  Alert,
   Progress,
   List,
   Tag,
-  Divider,
 } from 'antd';
 import {
   KeyOutlined,
@@ -19,7 +17,6 @@ import {
   ClusterOutlined,
   ApiOutlined,
   CheckCircleOutlined,
-  ExclamationCircleOutlined,
   UserOutlined,
   ClockCircleOutlined,
   WarningOutlined,
@@ -28,7 +25,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { ApiKeyService } from '@/services/apiKey.service';
-import { McpToolService, ServerGroupService } from '@/services/mcpTool.service';
+import { McpToolService } from '@/services/mcpTool.service';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 
@@ -58,11 +55,6 @@ const Dashboard: React.FC = () => {
     queryFn: () => McpToolService.listTools(undefined, false), // Include disabled tools
   });
 
-  // Fetch server groups
-  const { data: groupsData } = useQuery({
-    queryKey: ['serverGroups'],
-    queryFn: ServerGroupService.listGroups,
-  });
 
   // Fetch my accessible assistants
   const { data: myAssistants } = useQuery({
@@ -75,23 +67,9 @@ const Dashboard: React.FC = () => {
   const toolsCount = toolsData?.data?.length || 0;
   const enabledToolsCount = toolsData?.data?.filter(tool => tool.enabled && !tool.disabled)?.length || 0;
   const disabledToolsCount = toolsData?.data?.filter(tool => tool.disabled)?.length || 0;
-  const groupsCount = groupsData?.data?.length || 0;
+  // const groupsCount = groupsData?.data?.length || 0;
   const myAssistantsCount = myAssistants?.data?.length || 0;
 
-  // Calculate group usage statistics
-  const groupUsageStats = groupsData?.data?.map(group => {
-    const toolsInGroup = toolsData?.data?.filter(tool => tool.group_id === group.id).length || 0;
-    const activeToolsInGroup = toolsData?.data?.filter(tool => tool.group_id === group.id && tool.enabled && !tool.disabled).length || 0;
-    const usagePercent = Math.round((toolsInGroup / group.max_tools) * 100);
-    
-    return {
-      ...group,
-      toolsCount: toolsInGroup,
-      activeToolsCount: activeToolsInGroup,
-      usagePercent,
-      status: usagePercent > 90 ? 'danger' : usagePercent > 70 ? 'warning' : 'normal'
-    };
-  }) || [];
 
   // Get recent tools (last 5)
   const recentTools = toolsData?.data
@@ -173,7 +151,7 @@ const Dashboard: React.FC = () => {
               </Card>
             </Col>
           )}
-          
+
           <Col xs={24} sm={12} lg={6}>
             <Card hoverable onClick={() => navigate('/mcp-tools')} style={{ cursor: 'pointer' }}>
               <Statistic
@@ -183,9 +161,9 @@ const Dashboard: React.FC = () => {
                 valueStyle={{ color: '#52c41a' }}
               />
               <div style={{ marginTop: 8 }}>
-                <Progress 
+                <Progress
                   percent={toolsCount > 0 ? Math.round((enabledToolsCount / toolsCount) * 100) : 0}
-                  size="small" 
+                  size="small"
                   status="active"
                   format={() => `${enabledToolsCount} active`}
                 />
@@ -215,7 +193,6 @@ const Dashboard: React.FC = () => {
             <Card hoverable onClick={() => navigate('/server-groups')} style={{ cursor: 'pointer' }}>
               <Statistic
                 title="Server Groups"
-                value={groupsCount}
                 prefix={<ClusterOutlined />}
                 valueStyle={{ color: '#722ed1' }}
               />
@@ -241,7 +218,7 @@ const Dashboard: React.FC = () => {
                       </Tag>
                       <span>{count} tools</span>
                     </Space>
-                    <Progress 
+                    <Progress
                       percent={toolsCount > 0 ? Math.round((count / toolsCount) * 100) : 0}
                       size="small"
                       style={{ width: 100 }}
@@ -257,29 +234,6 @@ const Dashboard: React.FC = () => {
           </Col>
 
           <Col xs={24} lg={12}>
-            <Card title="Group Usage" extra={<ClusterOutlined />}>
-              <Space direction="vertical" style={{ width: '100%' }}>
-                {groupUsageStats.slice(0, 5).map(group => (
-                  <div key={group.id}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                      <Text strong>{group.name}</Text>
-                      <Space>
-                        <Text type="secondary">{group.toolsCount}/{group.max_tools}</Text>
-                        {group.status === 'danger' && <WarningOutlined style={{ color: '#ff4d4f' }} />}
-                      </Space>
-                    </div>
-                    <Progress 
-                      percent={group.usagePercent}
-                      size="small"
-                      status={group.status === 'danger' ? 'exception' : group.status === 'warning' ? 'active' : 'success'}
-                    />
-                  </div>
-                ))}
-                {groupUsageStats.length === 0 && (
-                  <Text type="secondary">No groups configured yet</Text>
-                )}
-              </Space>
-            </Card>
           </Col>
         </Row>
 
@@ -297,8 +251,8 @@ const Dashboard: React.FC = () => {
                       title={
                         <Space>
                           <span>{tool.name}</span>
-                          <Tag 
-                            size="small" 
+                          <Tag
+                            size="small"
                             color={tool.connection_type === 'stdio' ? 'blue' : tool.connection_type === 'http' ? 'green' : 'orange'}
                           >
                             {tool.connection_type}

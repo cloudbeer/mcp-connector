@@ -26,16 +26,12 @@ import {
   DeleteOutlined,
   PlayCircleOutlined,
   PauseCircleOutlined,
-  SettingOutlined,
   ApiOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
   ImportOutlined,
-  ExportOutlined,
   CodeOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { McpToolService, ServerGroupService } from '@/services/mcpTool.service';
+import { McpToolService } from '@/services/mcpTool.service';
 import type { McpTool, CreateMcpToolRequest, UpdateMcpToolRequest, ServerGroup } from '@/types/api.types';
 import { CONNECTION_TYPES, DEFAULT_TIMEOUT, DEFAULT_RETRY_COUNT, DEFAULT_RETRY_DELAY } from '@/constants';
 import BatchImportModal from '@/components/BatchImportModal';
@@ -61,12 +57,6 @@ const McpTools: React.FC = () => {
   const { data: toolsData, isLoading } = useQuery({
     queryKey: ['mcpTools', selectedGroupId],
     queryFn: () => McpToolService.listTools(selectedGroupId, false), // Include disabled tools
-  });
-
-  // Fetch server groups
-  const { data: groupsData } = useQuery({
-    queryKey: ['serverGroups'],
-    queryFn: ServerGroupService.listGroups,
   });
 
   // Create tool mutation
@@ -174,7 +164,7 @@ const McpTools: React.FC = () => {
 
   const handleUpdate = (values: any) => {
     if (!editingTool) return;
-    
+
     const formData: any = {
       name: values.name,
       description: values.description,
@@ -251,7 +241,9 @@ const McpTools: React.FC = () => {
     const jsonConfig = {
       mcpServers: {
         [tool.name]: {
-          command: tool.command,
+          ...(tool.connection_type === 'http' || tool.connection_type === 'sse'
+            ? { url: tool.url }
+            : { command: tool.command }),
           ...(tool.args && tool.args.length > 0 && { args: tool.args }),
           ...(tool.env && Object.keys(tool.env).length > 0 && { env: tool.env }),
           ...(tool.auto_approve && tool.auto_approve.length > 0 && { autoApprove: tool.auto_approve }),
@@ -319,15 +311,6 @@ const McpTools: React.FC = () => {
           {type.toUpperCase()}
         </Tag>
       ),
-    },
-    {
-      title: 'Group',
-      dataIndex: 'group_id',
-      key: 'group_id',
-      render: (groupId: number) => {
-        const group = groupsData?.data?.find(g => g.id === groupId);
-        return group?.name || 'Unknown';
-      },
     },
     {
       title: 'Status',
@@ -419,19 +402,7 @@ const McpTools: React.FC = () => {
             </Text>
           </div>
           <Space>
-            <Select
-              placeholder="Filter by group"
-              allowClear
-              style={{ width: 200 }}
-              value={selectedGroupId}
-              onChange={setSelectedGroupId}
-            >
-              {groupsData?.data?.map(group => (
-                <Option key={group.id} value={group.id}>
-                  {group.name}
-                </Option>
-              ))}
-            </Select>
+
             <Button
               icon={<ImportOutlined />}
               onClick={() => setIsBatchImportVisible(true)}
@@ -476,7 +447,6 @@ const McpTools: React.FC = () => {
         >
           <CreateToolForm
             form={createForm}
-            groups={groupsData?.data || []}
             onFinish={handleCreate}
             onCancel={() => {
               setIsCreateModalVisible(false);
@@ -500,7 +470,6 @@ const McpTools: React.FC = () => {
         >
           <EditToolForm
             form={editForm}
-            groups={groupsData?.data || []}
             onFinish={handleUpdate}
             onCancel={() => {
               setIsEditModalVisible(false);
@@ -517,7 +486,6 @@ const McpTools: React.FC = () => {
           visible={isBatchImportVisible}
           onCancel={() => setIsBatchImportVisible(false)}
           onSuccess={handleBatchImportSuccess}
-          groups={groupsData?.data || []}
           onImport={handleBatchImport}
           loading={batchImportMutation.isPending}
         />
@@ -561,7 +529,9 @@ const McpTools: React.FC = () => {
                 {JSON.stringify({
                   mcpServers: {
                     [viewingTool.name]: {
-                      command: viewingTool.command,
+                      ...(viewingTool.connection_type === 'http' || viewingTool.connection_type === 'sse'
+                        ? { url: viewingTool.url }
+                        : { command: viewingTool.command }),
                       ...(viewingTool.args && viewingTool.args.length > 0 && { args: viewingTool.args }),
                       ...(viewingTool.env && Object.keys(viewingTool.env).length > 0 && { env: viewingTool.env }),
                       ...(viewingTool.auto_approve && viewingTool.auto_approve.length > 0 && { autoApprove: viewingTool.auto_approve }),
@@ -589,7 +559,6 @@ interface CreateToolFormProps {
 
 const CreateToolForm: React.FC<CreateToolFormProps> = ({
   form,
-  groups,
   onFinish,
   onCancel,
   loading,
@@ -601,7 +570,6 @@ const CreateToolForm: React.FC<CreateToolFormProps> = ({
       name: values.name,
       description: values.description,
       connection_type: values.connection_type,
-      group_id: values.group_id,
       timeout: values.timeout || DEFAULT_TIMEOUT,
       retry_count: values.retry_count || DEFAULT_RETRY_COUNT,
       retry_delay: values.retry_delay || DEFAULT_RETRY_DELAY,
@@ -673,19 +641,6 @@ const CreateToolForm: React.FC<CreateToolFormProps> = ({
           </Form.Item>
         </Col>
         <Col span={12}>
-          <Form.Item
-            name="group_id"
-            label="Server Group"
-            rules={[{ required: true, message: 'Please select a server group' }]}
-          >
-            <Select placeholder="Select server group">
-              {groups.map(group => (
-                <Option key={group.id} value={group.id}>
-                  {group.name}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
         </Col>
       </Row>
 
@@ -865,7 +820,6 @@ const CreateToolForm: React.FC<CreateToolFormProps> = ({
 // Edit Tool Form Component
 interface EditToolFormProps {
   form: any;
-  groups: ServerGroup[];
   onFinish: (values: any) => void;
   onCancel: () => void;
   loading: boolean;
@@ -874,7 +828,6 @@ interface EditToolFormProps {
 
 const EditToolForm: React.FC<EditToolFormProps> = ({
   form,
-  groups,
   onFinish,
   onCancel,
   loading,
@@ -910,19 +863,6 @@ const EditToolForm: React.FC<EditToolFormProps> = ({
           </Form.Item>
         </Col>
         <Col span={12}>
-          <Form.Item
-            name="group_id"
-            label="Server Group"
-            rules={[{ required: true, message: 'Please select a server group' }]}
-          >
-            <Select placeholder="Select server group">
-              {groups.map(group => (
-                <Option key={group.id} value={group.id}>
-                  {group.name}
-                </Option>
-              ))}
-            </Select>
-          </Form.Item>
         </Col>
       </Row>
 
