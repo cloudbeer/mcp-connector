@@ -505,15 +505,16 @@ Content-Type: application/json
 POST {{baseUrl}}/chat/completions
 Authorization: Bearer {{assistantKey}}
 Content-Type: application/json
+Session-ID: xxx123
 
 {
   "model": "aws_helper",
   "messages": [
     {"role": "system", "content": "You are a creative assistant."},
-    {"role": "user", "content": "你能告诉我aws bedrock 什么时候发布的吗？"}
+    {"role": "user", "content": "aws bedrock 什么时候发布的？"}
   ],
   "temperature": 0.9,
-  "stream": false
+  "stream": true
 }
 
 
@@ -521,7 +522,7 @@ Content-Type: application/json
 POST {{baseUrl}}/chat/completions
 Authorization: Bearer {{assistantKey}}
 Content-Type: application/json
-session_id: xxx123
+Session-ID: xxx123
 
 {
   "model": "aws_helper",
@@ -537,6 +538,7 @@ session_id: xxx123
 POST {{baseUrl}}/chat/completions
 Authorization: Bearer {{assistantKey}}
 Content-Type: application/json
+Session-ID: xxx123
 
 {
   "model": "aws_helper",

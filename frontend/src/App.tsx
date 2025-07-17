@@ -16,6 +16,7 @@ import ServerGroups from '@/pages/ServerGroups';
 import Assistants from '@/pages/Assistants';
 import AssistantDetail from '@/pages/AssistantDetail';
 import AssistantEdit from '@/pages/AssistantEdit';
+import ChatPage from '@/pages/chat/ChatPage';
 import { useAuth } from '@/hooks/useAuth';
 
 // Create a client
@@ -31,7 +32,7 @@ const queryClient = new QueryClient({
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
-  
+
   // Show loading while checking authentication
   if (isLoading) {
     return (
@@ -45,11 +46,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
       </div>
     );
   }
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -86,6 +87,7 @@ const App: React.FC = () => {
                         <Route path="/assistants" element={<Assistants />} />
                         <Route path="/assistants/:id" element={<AssistantDetail />} />
                         <Route path="/assistants/:id/edit" element={<AssistantEdit />} />
+                        <Route path="/chat" element={<ChatPage />} />
                       </Routes>
                     </Layout>
                   </ProtectedRoute>

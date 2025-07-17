@@ -154,7 +154,7 @@ async def update_assistant(
         # Get updated assistant with tools
         result = await AssistantQueries.get_assistant_with_tools(assistant_id)
         
-        # 刷新助手的 agent 缓存
+        # 刷新助手的 agent
         try:
             from app.api.v1.openai_compatible import refresh_assistant_agent
             await refresh_assistant_agent(assistant_id)
@@ -192,7 +192,7 @@ async def delete_assistant(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to delete assistant")
         
-        # 刷新助手的 agent 缓存
+        # 刷新助手的 agent
         try:
             from app.api.v1.openai_compatible import refresh_assistant_agent
             await refresh_assistant_agent(assistant_id)
@@ -270,7 +270,7 @@ async def add_tool_to_assistant(
             assistant_id, tool_id, priority
         )
         
-        # 刷新助手的 agent 缓存
+        # 刷新助手的 agent
         try:
             from app.api.v1.openai_compatible import refresh_assistant_agent
             await refresh_assistant_agent(assistant_id)
@@ -313,7 +313,7 @@ async def remove_tool_from_assistant(
                 detail="Tool not found in assistant"
             )
         
-        # 刷新助手的 agent 缓存
+        # 刷新助手的 agent
         try:
             from app.api.v1.openai_compatible import refresh_assistant_agent
             await refresh_assistant_agent(assistant_id)
@@ -357,7 +357,7 @@ async def update_tool_priority(
                 detail="Tool not found in assistant"
             )
         
-        # 刷新助手的 agent 缓存
+        # 刷新助手的 agent
         try:
             from app.api.v1.openai_compatible import refresh_assistant_agent
             await refresh_assistant_agent(assistant_id)

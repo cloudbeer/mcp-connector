@@ -2,6 +2,7 @@
 FastAPI main application for MCP Connector.
 """
 import logging
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -10,7 +11,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.db.connection import db_manager
 from app.api.v1 import health
-from app.api.v1.openai_compatible import start_session_cleanup
 
 
 # Configure logging
@@ -21,16 +21,23 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Background task for agent cleanup
+cleanup_task = None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
+    global cleanup_task
+    
     # Startup
     logger.info("Starting MCP Connector...")
     await db_manager.connect()
     
-    # Start session cleanup task
-    start_session_cleanup()
-    logger.info("Session cleanup task started")
+    # Start agent cleanup task
+    from app.core.agent_manager import cleanup_idle_agents_task
+    cleanup_task = asyncio.create_task(cleanup_idle_agents_task())
+    logger.info("Started agent cleanup background task")
     
     logger.info("MCP Connector started successfully")
     
@@ -38,6 +45,15 @@ async def lifespan(app: FastAPI):
     
     # Shutdown
     logger.info("Shutting down MCP Connector...")
+    
+    # Cancel cleanup task
+    if cleanup_task:
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            pass
+    
     await db_manager.disconnect()
     logger.info("MCP Connector shut down successfully")
 
@@ -86,6 +102,10 @@ app.include_router(assistants.router, prefix="/api/v1", tags=["assistants"])
 # Import and include OpenAI compatible API router
 from app.api.v1 import openai_compatible
 app.include_router(openai_compatible.router, tags=["openai-compatible"])
+
+# Import and include sessions router
+from app.api.v1 import sessions
+app.include_router(sessions.router, prefix="/api/v1", tags=["sessions"])
 
 
 @app.get("/")

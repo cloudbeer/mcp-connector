@@ -11,6 +11,7 @@ import {
   LogoutOutlined,
   SettingOutlined,
   RobotOutlined,
+  MessageOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -55,6 +56,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       icon: <RobotOutlined />,
       label: 'Assistants',
     },
+    {
+      key: '/chat',
+      icon: <MessageOutlined />,
+      label: 'Chat',
+    },
   ];
 
   const handleMenuClick = (key: string) => {
@@ -86,17 +92,17 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
       <Sider trigger={null} collapsible collapsed={collapsed} theme="dark">
-        <div style={{ 
-          height: 64, 
-          display: 'flex', 
-          alignItems: 'center', 
+        <div style={{
+          height: 64,
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           borderBottom: '1px solid #303030'
         }}>
-          <Title 
-            level={4} 
-            style={{ 
-              color: 'white', 
+          <Title
+            level={4}
+            style={{
+              color: 'white',
               margin: 0,
               fontSize: collapsed ? '16px' : '18px'
             }}
@@ -113,8 +119,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         />
       </Sider>
       <AntLayout>
-        <Header style={{ 
-          padding: '0 16px', 
+        <Header style={{
+          padding: '0 16px',
           background: '#fff',
           display: 'flex',
           alignItems: 'center',

@@ -5,15 +5,14 @@ import time
 import logging
 import uuid
 from typing import Dict, Any, List, Tuple, Optional
-
-from app.core.mcp_wrapper import MCPAgentWrapper
+from strands import Agent
 
 logger = logging.getLogger(__name__)
 
 
 class SessionManager:
     """
-    管理与会话 ID 关联的上下文、clients 和 agent 对象。
+    管理与会话 ID 关联的 clients 和 agent 对象。
     允许在多次请求之间复用这些资源，减少初始化开销。
     """
     
@@ -35,7 +34,7 @@ class SessionManager:
         assistant_id: int, 
         clients: List[Any], 
         tools: List[Any]
-    ) -> Tuple[str, MCPAgentWrapper]:
+    ) -> Tuple[str, Agent]:
         """
         创建新会话。
         
@@ -46,7 +45,7 @@ class SessionManager:
             tools: 工具列表
             
         Returns:
-            Tuple[str, MCPAgentWrapper]: 会话 ID 和 Agent 包装器
+            Tuple[str, Agent]: 会话 ID 和 Agent 实例
         """
         # 如果没有提供会话 ID，则生成一个
         if session_id is None:
@@ -58,30 +57,23 @@ class SessionManager:
         
         logger.info(f"Creating new session {session_id} for assistant {assistant_id}")
         
-        try:
-            # 创建 MCP Agent 包装器
-            wrapper = MCPAgentWrapper(clients, tools)
-            
-            # 初始化包装器
-            if not wrapper.initialize():
-                raise RuntimeError("Failed to initialize MCPAgentWrapper")
-            
-            # 存储会话数据
-            self.sessions[session_id] = {
-                'assistant_id': assistant_id,
-                'wrapper': wrapper,
-                'created_at': time.time(),
-                'last_used_at': time.time()
-            }
-            
-            # 设置过期时间
-            self.session_expiry[session_id] = time.time() + self.expiry_time
-            
-            return session_id, wrapper
-            
-        except Exception as e:
-            logger.error(f"Failed to create session {session_id}: {e}")
-            raise e
+        # 创建 Agent
+        agent = Agent(tools=tools)
+        
+        # 存储会话数据
+        self.sessions[session_id] = {
+            'assistant_id': assistant_id,
+            'clients': clients,
+            'agent': agent,
+            'tools': tools,
+            'created_at': time.time(),
+            'last_used_at': time.time()
+        }
+        
+        # 设置过期时间
+        self.session_expiry[session_id] = time.time() + self.expiry_time
+        
+        return session_id, agent
     
     def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
         """
@@ -116,12 +108,6 @@ class SessionManager:
         if session_id in self.sessions:
             session = self.sessions[session_id]
             logger.info(f"Closing session {session_id} for assistant {session['assistant_id']}")
-            
-            # 关闭 MCP Agent 包装器
-            try:
-                session['wrapper'].close()
-            except Exception as e:
-                logger.error(f"Error closing wrapper for session {session_id}: {e}")
             
             # 删除会话数据
             del self.sessions[session_id]
@@ -172,16 +158,14 @@ class SessionManager:
         """
         if session_id in self.sessions:
             session = self.sessions[session_id]
-            wrapper = session['wrapper']
             return {
                 'session_id': session_id,
                 'assistant_id': session['assistant_id'],
                 'created_at': session['created_at'],
                 'last_used_at': session['last_used_at'],
                 'expires_at': self.session_expiry[session_id],
-                'is_initialized': wrapper.is_initialized,
-                'client_count': len(wrapper.clients),
-                'tool_count': len(wrapper.tools)
+                'client_count': len(session['clients']),
+                'tool_count': len(session['tools'])
             }
         return None
     

@@ -13,8 +13,6 @@ from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
 from strands import Agent
 from strands.tools.mcp import MCPClient
-from strands.agent.conversation_manager import NullConversationManager
-
 
 from app.db.queries import MCPToolQueries
 
@@ -28,6 +26,10 @@ class MCPServerManager:
         self._clients: Dict[int, MCPClient] = {}  # tool_id -> MCPClient
         self._client_info: Dict[int, Dict[str, Any]] = {}  # tool_id -> client info
         self._lock = asyncio.Lock()
+        self._active_clients: Dict[int, bool] = {}  # tool_id -> is_active
+        self._tools_cache: Dict[int, List[Any]] = {}  # tool_id -> tools
+        self._agents_cache: Dict[str, Agent] = {}  # tool_ids_key -> Agent
+        logger.info("MCP Server Manager initialized")
     
     async def start_mcp_server(self, tool_config: Dict[str, Any]) -> bool:
         """Start an MCP server based on tool configuration."""
@@ -57,7 +59,26 @@ class MCPServerManager:
                     "url": tool_config.get("url"),
                 }
                 
-                logger.info(f"Started MCP server for tool {tool_id}: {tool_config['name']}")
+                # 初始化客户端并缓存工具
+                try:
+                    # 进入客户端上下文
+                    mcp_client.__enter__()
+                    self._active_clients[tool_id] = True
+                    
+                    # 获取并缓存工具
+                    tools = mcp_client.list_tools_sync()
+                    self._tools_cache[tool_id] = tools
+                    
+                    logger.info(f"Started and initialized MCP server for tool {tool_id}: {tool_config['name']}")
+                except Exception as e:
+                    logger.error(f"Failed to initialize MCP client for tool {tool_id}: {e}")
+                    # 如果初始化失败，清理资源
+                    if tool_id in self._clients:
+                        del self._clients[tool_id]
+                    if tool_id in self._client_info:
+                        del self._client_info[tool_id]
+                    return False
+                
                 return True
                 
             except Exception as e:
@@ -74,13 +95,33 @@ class MCPServerManager:
             try:
                 # Get client and close it
                 client = self._clients[tool_id]
-                # Note: MCPClient from strands_agents may not have explicit close method
-                # We'll remove it from our tracking
+                
+                # 如果客户端处于活跃状态，退出上下文
+                if tool_id in self._active_clients and self._active_clients[tool_id]:
+                    try:
+                        client.__exit__(None, None, None)
+                        self._active_clients[tool_id] = False
+                    except Exception as e:
+                        logger.error(f"Error exiting client context for tool {tool_id}: {e}")
                 
                 # Remove from tracking
                 del self._clients[tool_id]
                 if tool_id in self._client_info:
                     del self._client_info[tool_id]
+                if tool_id in self._active_clients:
+                    del self._active_clients[tool_id]
+                if tool_id in self._tools_cache:
+                    del self._tools_cache[tool_id]
+                
+                # 清理相关的 agent 缓存
+                agents_to_remove = []
+                for key in self._agents_cache:
+                    if str(tool_id) in key.split(','):
+                        agents_to_remove.append(key)
+                
+                for key in agents_to_remove:
+                    if key in self._agents_cache:
+                        del self._agents_cache[key]
                 
                 logger.info(f"Stopped MCP server for tool {tool_id}")
                 return True
@@ -116,72 +157,103 @@ class MCPServerManager:
         """Check if MCP server is running for a tool."""
         return tool_id in self._clients
     
+    def is_active(self, tool_id: int) -> bool:
+        """Check if MCP client is active (context entered)."""
+        return tool_id in self._active_clients and self._active_clients[tool_id]
+    
     async def get_tools_from_client(self, tool_id: int) -> Optional[List[Any]]:
         """Get tools from a running MCP client."""
+        # 如果工具已经缓存，直接返回
+        if tool_id in self._tools_cache:
+            return self._tools_cache[tool_id]
+        
         client = self.get_client(tool_id)
         if not client:
             return None
         
         try:
-            # Get tools from the MCP server
-            with client:
-                tools = client.list_tools_sync()
-                return tools
+            # 如果客户端不活跃，进入上下文
+            if not self.is_active(tool_id):
+                client.__enter__()
+                self._active_clients[tool_id] = True
+            
+            # 获取工具
+            tools = client.list_tools_sync()
+            
+            # 缓存工具
+            self._tools_cache[tool_id] = tools
+            
+            return tools
         except Exception as e:
             logger.error(f"Failed to get tools from MCP client {tool_id}: {e}")
             return None
     
-    async def create_agent_with_tools(self, tool_ids: List[int]) -> Optional[Dict[str, Any]]:
-        """Create an agent with tools from specified MCP servers.
+    async def get_agent_for_tools(self, tool_ids: List[int]) -> Optional[Agent]:
+        """Get an agent with tools for specified tool IDs.
         
         Args:
             tool_ids: List of tool IDs to include
             
         Returns:
-            Dict containing tools and clients, or None if failed
+            Agent instance or None if failed
         """
+        if not tool_ids:
+            logger.warning("No tool IDs provided for agent creation")
+            return Agent()
+            
         try:
-            # Get all running clients for the specified tools
-            clients = []
-            for tool_id in tool_ids:
-                if not self.is_running(tool_id):
-                    # Try to start the server if it's not running
-                    tool_config = await MCPToolQueries.get_tool_by_id(tool_id)
-                    if not tool_config:
-                        continue
-                    
-                    success = await self.start_mcp_server(tool_config)
-                    if not success:
-                        continue
-                
-                client = self.get_client(tool_id)
-                if client:
-                    clients.append(client)
+            # 生成缓存键
+            sorted_tool_ids = sorted(tool_ids)  # 排序以确保相同的工具集合生成相同的键
+            cache_key = ','.join(map(str, sorted_tool_ids))
             
-            if not clients:
-                return {"tools": [], "clients": []}
+            # 检查缓存
+            if cache_key in self._agents_cache:
+                logger.info(f"Using cached agent for tools {cache_key}")
+                return self._agents_cache[cache_key]
             
-            # Get tools from all clients
+            # 确保所有客户端都在运行并处于活跃状态
             all_tools = []
-            for client in clients:
+            for tool_id in tool_ids:
                 try:
-                    # Get tools from this client
-                    with client:
-                        client_tools = client.list_tools_sync()
-                        if client_tools:
-                            all_tools.extend(client_tools)
+                    if not self.is_running(tool_id):
+                        # 尝试启动服务器
+                        tool_config = await MCPToolQueries.get_tool_by_id(tool_id)
+                        if not tool_config:
+                            logger.warning(f"Tool {tool_id} not found in database")
+                            continue
+                        
+                        success = await self.start_mcp_server(tool_config)
+                        if not success:
+                            logger.warning(f"Failed to start MCP server for tool {tool_id}")
+                            continue
+                    
+                    # 获取工具
+                    tools = await self.get_tools_from_client(tool_id)
+                    if tools:
+                        all_tools.extend(tools)
+                    else:
+                        logger.warning(f"No tools found for tool ID {tool_id}")
                 except Exception as e:
-                    logger.error(f"Error getting tools from client: {e}")
+                    logger.error(f"Error processing tool {tool_id}: {e}")
+                    continue
             
-            # Return tools and clients
-            return {
-                "tools": all_tools,
-                "clients": clients
-            }
+            if not all_tools:
+                logger.warning("No tools available for agent creation")
+                return Agent()
+            
+            # 创建 Agent
+            agent = Agent(tools=all_tools)
+            
+            # 缓存 Agent
+            self._agents_cache[cache_key] = agent
+            
+            logger.info(f"Created new agent for tools {cache_key}")
+            return agent
             
         except Exception as e:
-            logger.error(f"Error preparing agent tools: {e}")
-            return None
+            logger.error(f"Error creating agent with tools: {e}", exc_info=True)
+            # 返回一个没有工具的 Agent，而不是 None
+            return Agent()
     
     async def _create_mcp_client(self, tool_config: Dict[str, Any]) -> MCPClient:
         """Create MCP client based on tool configuration."""

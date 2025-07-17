@@ -21,7 +21,11 @@ headers = {
 }
 
 
-def test_chat_completion(assistant_name: str, messages: List[Dict[str, str]], stream: bool = False) -> Dict[str, Any]:
+def test_chat_completion(
+    assistant_name: str, 
+    messages: List[Dict[str, str]], 
+    stream: bool = False
+) -> Dict[str, Any]:
     """Test chat completion API."""
     url = f"{BASE_URL}/chat/completions"
     
@@ -72,15 +76,22 @@ def test_chat_completion(assistant_name: str, messages: List[Dict[str, str]], st
 def main():
     """Main function."""
     if len(sys.argv) < 2:
-        print("Usage: python test_openai_api.py <assistant_name> [--stream]")
+        print("Usage: python test_openai_api.py <assistant_name> [--stream] [--message <message>]")
         sys.exit(1)
     
     assistant_name = sys.argv[1]
     stream = "--stream" in sys.argv
     
+    # Get message from command line or use default
+    message = "What's the weather like today in New York?"
+    if "--message" in sys.argv:
+        idx = sys.argv.index("--message")
+        if idx + 1 < len(sys.argv):
+            message = sys.argv[idx + 1]
+    
     messages = [
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Can you tell me what is amazon bedrock?"}
+        {"role": "user", "content": message}
     ]
     
     result = test_chat_completion(assistant_name, messages, stream)

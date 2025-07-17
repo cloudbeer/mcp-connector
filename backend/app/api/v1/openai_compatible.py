@@ -7,20 +7,17 @@ import json
 import uuid
 import asyncio
 from typing import List, Optional, Dict, Any, AsyncGenerator
-from fastapi import APIRouter, HTTPException, Depends, Request, Header, Response
+from fastapi import APIRouter, HTTPException, Depends, Request, Response, Header, Cookie
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from contextlib import asynccontextmanager
+from strands import Agent
 
 from app.core.auth import api_key_auth
 from app.db.assistant_queries import AssistantQueries
 from app.db.queries import MCPToolQueries
 from app.core.mcp_manager import mcp_manager
+from app.core.agent_manager import agent_manager
 from app.db.api_key_queries import APIKeyAssistantQueries
-from app.core.session_manager import session_manager
-
-# 全局字典，用于存储 assistant_id -> agent 配置的映射
-_assistant_configs = {}
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +38,7 @@ class ChatCompletionRequest(BaseModel):
     temperature: Optional[float] = Field(0.7, description="The sampling temperature")
     max_tokens: Optional[int] = Field(None, description="The maximum number of tokens to generate")
     tools: Optional[List[Dict[str, Any]]] = Field(None, description="Override tools to use")
+    session_id: Optional[str] = Field(None, description="Session ID for continuing a conversation")
 
 
 class ChatCompletionChoice(BaseModel):
@@ -65,6 +63,7 @@ class ChatCompletionResponse(BaseModel):
     model: str
     choices: List[ChatCompletionChoice]
     usage: ChatCompletionUsage
+    session_id: Optional[str] = None  # Session ID for continuing the conversation
 
 
 class DeltaMessage(BaseModel):
@@ -86,9 +85,8 @@ class ChatCompletionChunk(BaseModel):
 async def create_chat_completion(
     request: ChatCompletionRequest,
     req: Request,
-    response: Response,
-    session_id: Optional[str] = Header(None),
-    current_key: dict = Depends(api_key_auth)
+    current_key: dict = Depends(api_key_auth),
+    x_session_id: Optional[str] = Header(None)
 ):
     """Create a chat completion."""
     try:
@@ -107,58 +105,36 @@ async def create_chat_completion(
                 detail=f"API key does not have access to assistant: {assistant_name}"
             )
         
-        # 处理会话
+        # Get or create session
+        session_id = request.session_id or x_session_id
         if session_id:
-            logger.info(f"Request with session ID: {session_id}")
-            # 尝试获取现有会话
-            session = session_manager.get_session(session_id)
-            if session and session['assistant_id'] == assistant["id"]:
-                # 会话存在且匹配当前助手
-                logger.info(f"Using existing session {session_id} for assistant {assistant['id']}")
-                wrapper = session['wrapper']
-                
-                # 在响应头中返回会话 ID
-                response.headers["Session-ID"] = session_id
-                
-                # 处理请求
-                if request.stream:
-                    return await stream_chat_completion_with_session(request, assistant, wrapper, session_id, response)
-                else:
-                    return await regular_chat_completion_with_session(request, assistant, wrapper, response)
-            else:
-                # 会话不存在或不匹配，创建新会话
-                if session:
-                    # 关闭旧会话
-                    logger.info(f"Closing mismatched session {session_id}")
-                    session_manager.close_session(session_id)
-                
-                # 获取助手配置
-                config = await get_assistant_config(assistant)
-                
-                # 创建新会话
-                try:
-                    new_session_id, wrapper = session_manager.create_session(
-                        session_id, 
-                        assistant["id"], 
-                        config['clients'], 
-                        config['tools']
-                    )
-                    
-                    # 在响应头中返回会话 ID
-                    response.headers["Session-ID"] = new_session_id
-                    
-                    # 处理请求
-                    if request.stream:
-                        return await stream_chat_completion_with_session(request, assistant, wrapper, new_session_id, response)
-                    else:
-                        return await regular_chat_completion_with_session(request, assistant, wrapper, response)
-                except Exception as e:
-                    logger.error(f"Failed to create session: {e}")
-                    # 如果创建会话失败，回退到临时上下文
-                    return await fallback_to_temporary_context(request, assistant, req, response)
+            # Verify session exists and belongs to this assistant
+            session = agent_manager.get_session(session_id)
+            if not session or session.get("assistant_id") != assistant["id"]:
+                # Invalid session, create a new one
+                session_id = await agent_manager.create_session(assistant["id"], user_id=current_key["id"])
         else:
-            # 没有会话 ID，使用临时上下文
-            return await fallback_to_temporary_context(request, assistant, req, response)
+            # Create new session
+            session_id = await agent_manager.create_session(assistant["id"], user_id=current_key["id"])
+        
+        # Get agent for this assistant
+        agent = await agent_manager.get_agent_for_assistant(assistant["id"])
+        if not agent:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create agent with tools"
+            )
+        
+        # Add user messages to session
+        for message in request.messages:
+            if message.role == "user":
+                agent_manager.add_message_to_session(session_id, "user", message.content)
+        
+        # 处理请求
+        if request.stream:
+            return await stream_chat_completion(request, assistant, agent, session_id)
+        else:
+            return await regular_chat_completion(request, assistant, agent, session_id)
         
     except HTTPException:
         raise
@@ -167,27 +143,9 @@ async def create_chat_completion(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-async def fallback_to_temporary_context(request, assistant, req, response):
-    """当会话管理失败时，回退到临时上下文"""
-    logger.info("Falling back to temporary context")
-    # 使用临时上下文
-    async with get_agent_context(assistant) as agent:
-        if request.stream:
-            return await stream_chat_completion(request, assistant, agent, response)
-        else:
-            return await regular_chat_completion(request, assistant, agent)
-
-
-async def get_assistant_config(assistant: Dict[str, Any]) -> Dict[str, Any]:
-    """获取助手配置（工具和客户端）"""
+async def get_tool_ids_for_assistant(assistant: Dict[str, Any]) -> List[int]:
+    """获取助手的工具 ID 列表。"""
     assistant_id = assistant["id"]
-    
-    # 如果已经有这个 assistant 的配置，直接使用
-    if assistant_id in _assistant_configs:
-        logger.info(f"Using cached config for assistant {assistant_id}")
-        return _assistant_configs[assistant_id]
-    
-    logger.info(f"Creating new config for assistant {assistant_id}")
     
     if assistant["type"] == "dedicated":
         # For dedicated assistants, get the associated tools
@@ -211,9 +169,6 @@ async def get_assistant_config(assistant: Dict[str, Any]) -> Dict[str, Any]:
             )
         ]
         
-        # Get tools and clients
-        config = await mcp_manager.create_agent_with_tools(tool_ids)
-        
     else:  # Universal assistant
         # For universal assistants, we'll use all available tools
         # In a real implementation, you'd use vector search to find relevant tools
@@ -225,70 +180,17 @@ async def get_assistant_config(assistant: Dict[str, Any]) -> Dict[str, Any]:
         max_tools = assistant.get("max_tools", 5)
         if len(tool_ids) > max_tools:
             tool_ids = tool_ids[:max_tools]
-        
-        # Get tools and clients
-        config = await mcp_manager.create_agent_with_tools(tool_ids)
     
-    if not config:
-        raise HTTPException(
-            status_code=500, 
-            detail="Failed to create agent configuration"
-        )
-    
-    # 缓存配置
-    _assistant_configs[assistant_id] = config
-    
-    return config
-
-
-@asynccontextmanager
-async def get_agent_context(assistant: Dict[str, Any]):
-    """
-    Context manager for getting an agent with tools for an assistant.
-    
-    Args:
-        assistant: Assistant configuration
-        
-    Yields:
-        Agent instance
-    """
-    # 获取助手配置
-    config = await get_assistant_config(assistant)
-    
-    # 使用同步上下文管理器
-    # 注意：这里我们需要手动管理多个客户端的上下文
-    clients = config["clients"]
-    client_contexts = []
-    
-    try:
-        # 进入所有客户端的上下文
-        for client in clients:
-            client_context = client.__enter__()
-            client_contexts.append((client, client_context))
-        
-        # 创建 Agent
-        from strands import Agent
-        agent = Agent(tools=config["tools"])
-        
-        # 返回 Agent
-        yield agent
-        
-    finally:
-        # 退出所有客户端的上下文
-        for client, _ in reversed(client_contexts):
-            try:
-                client.__exit__(None, None, None)
-            except Exception as e:
-                logger.error(f"Error exiting client context: {e}")
+    return tool_ids
 
 
 async def stream_chat_completion(
     request: ChatCompletionRequest,
     assistant: Dict[str, Any],
-    agent: Any,
-    response: Response
+    agent: Agent,
+    session_id: str
 ) -> StreamingResponse:
-    """Stream chat completion using temporary context."""
+    """Stream chat completion."""
     async def generate() -> AsyncGenerator[str, None]:
         try:
             logger.info(f"Starting stream chat completion for assistant {assistant['id']}")
@@ -316,6 +218,8 @@ async def stream_chat_completion(
             
             # Stream the content
             logger.info(f"Starting stream_async for assistant {assistant['id']}")
+            full_response = ""
+            
             async for event in agent.stream_async(prompt):
                 if "data" in event and event["data"]:
                     chunk = ChatCompletionChunk(
@@ -329,6 +233,10 @@ async def stream_chat_completion(
                         }]
                     )
                     yield f"data: {json.dumps(chunk.model_dump())}\n\n"
+                    full_response += event["data"]
+            
+            # Add assistant response to session
+            agent_manager.add_message_to_session(session_id, "assistant", full_response)
             
             # Send the final chunk
             final_chunk = ChatCompletionChunk(
@@ -361,98 +269,22 @@ async def stream_chat_completion(
     )
 
 
-async def stream_chat_completion_with_session(
-    request: ChatCompletionRequest,
-    assistant: Dict[str, Any],
-    wrapper: Any,
-    session_id: str,
-    response: Response
-) -> StreamingResponse:
-    """Stream chat completion using a persistent session."""
-    async def generate() -> AsyncGenerator[str, None]:
-        try:
-            logger.info(f"Starting stream chat completion with session {session_id} for assistant {assistant['id']}")
-            
-            # Prepare the prompt from messages
-            prompt = prepare_prompt_from_messages(request.messages)
-            
-            # Stream the response
-            chunk_id = f"chatcmpl-{uuid.uuid4()}"
-            created = int(time.time())
-            
-            # Send the first chunk with role
-            first_chunk = ChatCompletionChunk(
-                id=chunk_id,
-                created=created,
-                model=request.model,
-                choices=[{
-                    "index": 0,
-                    "delta": {"role": "assistant"},
-                    "finish_reason": None
-                }]
-            )
-            yield f"data: {json.dumps(first_chunk.model_dump())}\n\n"
-            
-            # Stream the content using the wrapper
-            logger.info(f"Starting stream_async with wrapper for session {session_id}")
-            async for event in wrapper.stream_async(prompt):
-                if "data" in event and event["data"]:
-                    chunk = ChatCompletionChunk(
-                        id=chunk_id,
-                        created=created,
-                        model=request.model,
-                        choices=[{
-                            "index": 0,
-                            "delta": {"content": event["data"]},
-                            "finish_reason": None
-                        }]
-                    )
-                    yield f"data: {json.dumps(chunk.model_dump())}\n\n"
-            
-            # Send the final chunk
-            final_chunk = ChatCompletionChunk(
-                id=chunk_id,
-                created=created,
-                model=request.model,
-                choices=[{
-                    "index": 0,
-                    "delta": {},
-                    "finish_reason": "stop"
-                }]
-            )
-            yield f"data: {json.dumps(final_chunk.model_dump())}\n\n"
-            yield "data: [DONE]\n\n"
-            logger.info(f"Completed stream chat completion with session {session_id}")
-            
-        except Exception as e:
-            logger.error(f"Error in stream_chat_completion_with_session: {e}", exc_info=True)
-            error_chunk = {
-                "error": {
-                    "message": str(e),
-                    "type": "internal_error"
-                }
-            }
-            yield f"data: {json.dumps(error_chunk)}\n\n"
-    
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream"
-    )
-
-
 async def regular_chat_completion(
     request: ChatCompletionRequest,
     assistant: Dict[str, Any],
-    agent: Any
+    agent: Agent,
+    session_id: str
 ) -> ChatCompletionResponse:
-    """Regular chat completion using temporary context."""
+    """Regular chat completion."""
     try:
         # Prepare the prompt from messages
         prompt = prepare_prompt_from_messages(request.messages)
         
         # Get the response using direct agent invocation
-        # 注意：agent() 是同步调用，不是异步的
         response = agent(prompt)
+        
+        # Add assistant response to session
+        agent_manager.add_message_to_session(session_id, "assistant", str(response))
         
         return ChatCompletionResponse(
             id=f"chatcmpl-{uuid.uuid4()}",
@@ -468,47 +300,12 @@ async def regular_chat_completion(
                     finish_reason="stop"
                 )
             ],
-            usage=ChatCompletionUsage()
+            usage=ChatCompletionUsage(),
+            session_id=session_id
         )
         
     except Exception as e:
         logger.error(f"Error in regular_chat_completion: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def regular_chat_completion_with_session(
-    request: ChatCompletionRequest,
-    assistant: Dict[str, Any],
-    wrapper: Any,
-    response: Response
-) -> ChatCompletionResponse:
-    """Regular chat completion using a persistent session."""
-    try:
-        # Prepare the prompt from messages
-        prompt = prepare_prompt_from_messages(request.messages)
-        
-        # Get the response using the wrapper
-        response_text = wrapper.invoke(prompt)
-        
-        return ChatCompletionResponse(
-            id=f"chatcmpl-{uuid.uuid4()}",
-            created=int(time.time()),
-            model=request.model,
-            choices=[
-                ChatCompletionChoice(
-                    index=0,
-                    message=Message(
-                        role="assistant",
-                        content=response_text
-                    ),
-                    finish_reason="stop"
-                )
-            ],
-            usage=ChatCompletionUsage()
-        )
-        
-    except Exception as e:
-        logger.error(f"Error in regular_chat_completion_with_session: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -551,7 +348,7 @@ def prepare_prompt_from_messages(messages: List[Message]) -> str:
 
 async def refresh_assistant_agent(assistant_id: int) -> bool:
     """
-    刷新指定助手的配置缓存。
+    刷新指定助手的 Agent。
     当助手配置（如关联的工具）发生变化时，应该调用此函数。
     
     Args:
@@ -560,88 +357,9 @@ async def refresh_assistant_agent(assistant_id: int) -> bool:
     Returns:
         bool: 是否成功刷新
     """
-    if assistant_id in _assistant_configs:
-        logger.info(f"Refreshing config for assistant {assistant_id}")
-        del _assistant_configs[assistant_id]
-        return True
-    return False
-
-
-async def clear_all_assistant_configs() -> int:
-    """
-    清除所有缓存的助手配置。
-    系统重启或全局配置变更时可以调用此函数。
-    
-    Returns:
-        int: 清除的配置数量
-    """
-    count = len(_assistant_configs)
-    logger.info(f"Clearing all {count} cached assistant configs")
-    _assistant_configs.clear()
-    return count
-
-
-# 会话管理端点
-@router.get("/sessions", response_model=Dict[str, Any])
-async def list_sessions(current_key: dict = Depends(api_key_auth)):
-    """List all active sessions."""
-    if not current_key["can_manage"]:
-        raise HTTPException(status_code=403, detail="Management permission required")
-    
-    sessions = session_manager.list_sessions()
-    return {
-        "success": True,
-        "count": len(sessions),
-        "sessions": sessions
-    }
-
-
-@router.delete("/sessions/{session_id}")
-async def close_session(
-    session_id: str,
-    current_key: dict = Depends(api_key_auth)
-):
-    """Close a specific session."""
-    if not current_key["can_manage"]:
-        raise HTTPException(status_code=403, detail="Management permission required")
-    
-    success = session_manager.close_session(session_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    return {
-        "success": True,
-        "message": f"Session {session_id} closed successfully"
-    }
-
-
-@router.delete("/sessions")
-async def close_all_sessions(current_key: dict = Depends(api_key_auth)):
-    """Close all sessions."""
-    if not current_key["can_manage"]:
-        raise HTTPException(status_code=403, detail="Management permission required")
-    
-    count = session_manager.clear_all_sessions()
-    return {
-        "success": True,
-        "message": f"All {count} sessions closed successfully"
-    }
-
-
-# 定期清理过期会话的任务
-async def cleanup_expired_sessions():
-    """Periodically clean up expired sessions."""
-    while True:
-        try:
-            await asyncio.sleep(60)  # 每分钟检查一次
-            count = session_manager.cleanup_expired_sessions()
-            if count > 0:
-                logger.info(f"Cleaned up {count} expired sessions")
-        except Exception as e:
-            logger.error(f"Error in cleanup_expired_sessions: {e}")
-
-
-# 在应用启动时启动清理任务
-def start_session_cleanup():
-    """Start the session cleanup task."""
-    asyncio.create_task(cleanup_expired_sessions())
+    try:
+        # 使用agent_manager刷新助手的Agent
+        return await agent_manager.refresh_agent(assistant_id)
+    except Exception as e:
+        logger.error(f"Error refreshing agent for assistant {assistant_id}: {e}")
+        return False
