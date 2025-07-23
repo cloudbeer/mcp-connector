@@ -21,7 +21,7 @@ async def create_admin_key():
     """创建一个具有管理权限的 API Key"""
     # 生成 API Key
     random_part = secrets.token_urlsafe(22)
-    api_key = f"mcpc-{random_part}"
+    api_key = f"ak-130984-{random_part}"
     
     # 计算哈希值
     key_hash = hashlib.sha256(api_key.encode()).hexdigest()
