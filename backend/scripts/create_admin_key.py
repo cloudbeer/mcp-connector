@@ -7,6 +7,7 @@ import hashlib
 import secrets
 import sys
 import logging
+from datetime import datetime
 from pathlib import Path
 
 # 添加父目录到路径以导入应用模块
@@ -19,15 +20,16 @@ logger = logging.getLogger(__name__)
 
 async def create_admin_key():
     """创建一个具有管理权限的 API Key"""
-    # 生成 API Key
-    random_part = secrets.token_urlsafe(22)
-    api_key = f"ak-130984-{random_part}"
+    # 生成 API Key - 使用与系统相同的格式
+    random_part = secrets.token_urlsafe(32)
+    timestamp = str(int(datetime.now().timestamp()))
+    api_key = f"ak-{timestamp[:6]}-{random_part}"
     
     # 计算哈希值
     key_hash = hashlib.sha256(api_key.encode()).hexdigest()
     
     # 创建前缀（用于显示）- 确保不超过20个字符
-    key_prefix = f"ak-{random_part[:8]}..."
+    key_prefix = f"ak-{timestamp[:6]}-{random_part[:8]}..."
     
     # 插入数据库
     query = """
