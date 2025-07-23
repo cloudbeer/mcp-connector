@@ -7,7 +7,7 @@ import hashlib
 import secrets
 import sys
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # 添加父目录到路径以导入应用模块
@@ -29,23 +29,27 @@ async def create_admin_key():
     key_hash = hashlib.sha256(api_key.encode()).hexdigest()
     
     # 创建前缀（用于显示）- 确保不超过20个字符
-    key_prefix = f"ak-{timestamp[:6]}-{random_part[:4]}..."
+    key_prefix = f"ak-{timestamp[:6]}-{random_part[:7]}..."
     
     # 插入数据库
     query = """
         INSERT INTO api_key (name, key_hash, key_prefix, can_manage, can_call_assistant, 
-                           is_disabled, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                           is_disabled, created_by, expires_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id
     """
     
+    # 设置10年后的过期时间
+    expires_at = datetime.now() + timedelta(days=365 * 10)
+    
     try:
         record = await db_manager.fetch_one(
-            query, "管理员账号", key_hash, key_prefix, True, True, False, "system"
+            query, "管理员账号", key_hash, key_prefix, True, True, False, "system", expires_at
         )
         
         logger.info(f"创建成功！API Key ID: {record['id']}")
         logger.info(f"API Key: {api_key}")
+        logger.info(f"过期时间: {expires_at.strftime('%Y-%m-%d %H:%M:%S')}")
         logger.info(f"请保存此 API Key，它不会再次显示")
         
         return api_key
