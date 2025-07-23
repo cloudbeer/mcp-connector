@@ -97,15 +97,6 @@ class MCPToolQueries:
             enabled
         )
         
-        # Add group relations if provided
-        if group_ids and result:
-            tool_id = result['id']
-            for group_id in group_ids:
-                await db_manager.execute("""
-                    INSERT INTO tool_group_relation (tool_id, group_id)
-                    VALUES ($1, $2)
-                    ON CONFLICT (tool_id, group_id) DO NOTHING
-                """, tool_id, group_id)
         
         return parse_mcp_tool_json_fields(result)
     
@@ -113,61 +104,21 @@ class MCPToolQueries:
     async def get_tool_by_id(tool_id: int) -> Optional[Dict[str, Any]]:
         """Get MCP tool by ID with its groups."""
         query = """
-            SELECT t.*, 
-                   COALESCE(
-                       json_agg(
-                           json_build_object(
-                               'id', sg.id,
-                               'name', sg.name,
-                               'description', sg.description,
-                               'max_tools', sg.max_tools
-                           )
-                       ) FILTER (WHERE sg.id IS NOT NULL), 
-                       '[]'::json
-                   ) as groups
+            SELECT t.*,
             FROM mcp_tool t
-            LEFT JOIN tool_group_relation tgr ON t.id = tgr.tool_id
-            LEFT JOIN server_group sg ON tgr.group_id = sg.id
             WHERE t.id = $1
-            GROUP BY t.id
         """
         result = await db_manager.fetch_one(query, tool_id)
         return parse_mcp_tool_json_fields(result)
     
-    @staticmethod
-    async def get_tools_by_group(group_id: int) -> List[Dict[str, Any]]:
-        """Get all tools in a group."""
-        query = """
-            SELECT t.*
-            FROM mcp_tool t
-            JOIN tool_group_relation tgr ON t.id = tgr.tool_id
-            WHERE tgr.group_id = $1 AND t.enabled = true
-            ORDER BY t.created_at
-        """
-        results = await db_manager.fetch_all(query, group_id)
-        return [parse_mcp_tool_json_fields(result) for result in results]
-    
+
     @staticmethod
     async def list_enabled_tools() -> List[Dict[str, Any]]:
         """List all enabled tools with their groups."""
         query = """
-            SELECT t.*, 
-                   COALESCE(
-                       json_agg(
-                           json_build_object(
-                               'id', sg.id,
-                               'name', sg.name,
-                               'description', sg.description,
-                               'max_tools', sg.max_tools
-                           )
-                       ) FILTER (WHERE sg.id IS NOT NULL), 
-                       '[]'::json
-                   ) as groups
+            SELECT t.*
             FROM mcp_tool t
-            LEFT JOIN tool_group_relation tgr ON t.id = tgr.tool_id
-            LEFT JOIN server_group sg ON tgr.group_id = sg.id
             WHERE t.enabled = true
-            GROUP BY t.id
             ORDER BY t.created_at
         """
         results = await db_manager.fetch_all(query)
@@ -179,23 +130,9 @@ class MCPToolQueries:
         where_clause = "WHERE t.enabled = true" if enabled_only else ""
         
         query = f"""
-            SELECT t.*, 
-                   COALESCE(
-                       json_agg(
-                           json_build_object(
-                               'id', sg.id,
-                               'name', sg.name,
-                               'description', sg.description,
-                               'max_tools', sg.max_tools
-                           )
-                       ) FILTER (WHERE sg.id IS NOT NULL), 
-                       '[]'::json
-                   ) as groups
+            SELECT t.*
             FROM mcp_tool t
-            LEFT JOIN tool_group_relation tgr ON t.id = tgr.tool_id
-            LEFT JOIN server_group sg ON tgr.group_id = sg.id
             {where_clause}
-            GROUP BY t.id
             ORDER BY t.created_at DESC
         """
         
@@ -308,21 +245,9 @@ class MCPToolQueries:
             """
             
             await db_manager.execute(query, *params)
-        
-        # Update group relations if provided
-        if group_ids is not None:
-            # Remove existing relations
-            await db_manager.execute("""
-                DELETE FROM tool_group_relation WHERE tool_id = $1
-            """, tool_id)
+    
             
-            # Add new relations
-            for group_id in group_ids:
-                await db_manager.execute("""
-                    INSERT INTO tool_group_relation (tool_id, group_id)
-                    VALUES ($1, $2)
-                    ON CONFLICT (tool_id, group_id) DO NOTHING
-                """, tool_id, group_id)
+  
         
         return await MCPToolQueries.get_tool_by_id(tool_id)
     

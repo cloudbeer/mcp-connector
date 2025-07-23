@@ -27,7 +27,7 @@ export const useAuth = () => {
     try {
       // Try to fetch current key info to validate the key
       const response = await ApiKeyService.getMyKeyInfo();
-      console.log('Auth check successful:', response);
+      // console.log('Auth check successful:', response);
 
       if (response.success && response.data) {
         const keyData = response.data as ApiKey;

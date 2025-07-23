@@ -120,7 +120,7 @@ CREATE TABLE api_key (
     id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL, -- API Key 名称/描述
     key_hash VARCHAR(255) NOT NULL UNIQUE, -- API Key 哈希值
-    key_prefix VARCHAR(20) NOT NULL, -- API Key 前缀（用于显示）
+    key_prefix VARCHAR(30) NOT NULL, -- API Key 前缀（用于显示）
     
     -- 权限控制
     can_manage BOOLEAN DEFAULT false, -- 是否能后台管理

@@ -349,11 +349,10 @@ Example format:
       width={900}
       style={{ top: 20 }}
     >
-      <Form form={form}>
-        {step === 'input' && renderInputStep()}
-        {step === 'preview' && renderPreviewStep()}
-        {step === 'result' && renderResultStep()}
-      </Form>
+      {step === 'input' && renderInputStep()}
+      {step === 'preview' && renderPreviewStep()}
+      {step === 'result' && renderResultStep()}
+
     </Modal>
   );
 };
