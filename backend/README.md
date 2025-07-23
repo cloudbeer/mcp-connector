@@ -27,8 +27,8 @@ uv sync
 # 初始化数据库
 uv run python scripts/init_db.py
 
-# 启动服务
-uv run uvicorn app.main:app --reload
+# 启动服务（后台运行）
+nohup uv run uvicorn app.main:app --reload --host 0.0.0.0 > app.log 2>&1 &
 ```
 
 ## API 文档

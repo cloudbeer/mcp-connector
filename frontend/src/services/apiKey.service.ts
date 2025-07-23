@@ -1,13 +1,13 @@
 import { apiService } from './api.service';
 import type { ApiResponse } from '@/types/api.types';
-import type { ApiKey, ApiKeyCreate, ApiKeyUpdate } from '@/types/apiKey.types';
+import type { ApiKey, ApiKeyCreate, ApiKeyUpdate, ApiKeyWithSecret } from '@/types/apiKey.types';
 
 export class ApiKeyService {
   // List API keys
   static async listApiKeys(includeDisabled = false): Promise<ApiResponse<ApiKey[]>> {
     const params = new URLSearchParams();
     params.append('include_disabled', includeDisabled.toString());
-    
+
     return apiService.get(`/api/v1/api-keys?${params.toString()}`);
   }
 
@@ -17,7 +17,7 @@ export class ApiKeyService {
   }
 
   // Create new API key
-  static async createApiKey(data: ApiKeyCreate): Promise<ApiResponse<ApiKey>> {
+  static async createApiKey(data: ApiKeyCreate): Promise<ApiResponse<ApiKeyWithSecret>> {
     return apiService.post('/api/v1/api-keys', data);
   }
 

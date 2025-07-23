@@ -28,9 +28,9 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { AssistantService } from '@/services/assistant.service';
 import { McpToolService } from '@/services/mcpTool.service';
 import type { AssistantType, UpdateAssistantRequest } from '@/types/assistant.types';
-import type { McpTool } from '@/types/api.types';
+// import type { McpTool } from '@/types/api.types';
 
-const { Title, Text } = Typography;
+const { Title, } = Typography;
 const { Option } = Select;
 const { TextArea } = Input;
 
@@ -81,7 +81,7 @@ const AssistantEdit: React.FC = () => {
     if (assistantData?.data) {
       const assistant = assistantData.data;
       setAssistantType(assistant.type);
-      
+
       form.setFieldsValue({
         name: assistant.name,
         description: assistant.description,
@@ -137,8 +137,8 @@ const AssistantEdit: React.FC = () => {
     <div>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
-        <Button 
-          icon={<ArrowLeftOutlined />} 
+        <Button
+          icon={<ArrowLeftOutlined />}
           onClick={() => navigate(`/assistants/${assistantId}`)}
           style={{ marginRight: 16 }}
         >

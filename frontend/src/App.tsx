@@ -7,7 +7,7 @@ import Layout from '@/components/layout/Layout';
 import Login from '@/pages/Login';
 import Dashboard from '@/pages/Dashboard';
 import ApiKeys from '@/pages/ApiKeys';
-import ApiKeyCreate from '@/pages/ApiKeyCreate';
+import ApiKeyCreateComponent from '@/pages/ApiKeyCreate';
 import ApiKeyDetail from '@/pages/ApiKeyDetail';
 import ApiKeyEdit from '@/pages/ApiKeyEdit';
 import McpTools from '@/pages/McpTools';
@@ -77,7 +77,7 @@ const App: React.FC = () => {
                         <Route path="/" element={<Navigate to="/dashboard" replace />} />
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/api-keys" element={<ApiKeys />} />
-                        <Route path="/api-keys/create" element={<ApiKeyCreate />} />
+                        <Route path="/api-keys/create" element={<ApiKeyCreateComponent />} />
                         <Route path="/api-keys/:id" element={<ApiKeyDetail />} />
                         <Route path="/api-keys/:id/edit" element={<ApiKeyEdit />} />
                         <Route path="/mcp-tools" element={<McpTools />} />

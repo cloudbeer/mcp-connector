@@ -7,15 +7,12 @@ import {
   Button,
   Space,
   Tag,
-  Divider,
   Spin,
   Alert,
   Table,
   Modal,
   Form,
   Select,
-  Row,
-  Col,
   Tooltip,
   Popconfirm,
   message,
@@ -30,8 +27,6 @@ import {
   DeleteOutlined,
   PlusOutlined,
   SyncOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
   InfoCircleOutlined,
   RobotOutlined,
 } from '@ant-design/icons';
@@ -39,7 +34,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ApiKeyService } from '@/services/apiKey.service';
 import { AssistantService } from '@/services/assistant.service';
 import type { ApiKey, ApiKeyAssistant } from '@/types/apiKey.types';
-import type { Assistant } from '@/types/assistant.types';
+// import type { Assistant } from '@/types/assistant.types';
 
 const { Title, Text, Paragraph } = Typography;
 const { TabPane } = Tabs;
@@ -128,19 +123,19 @@ const ApiKeyDetail: React.FC = () => {
       // First, get current assistants
       const currentAssistants = assistantsData?.data || [];
       const currentAssistantIds = currentAssistants.map(assistant => assistant.id);
-      
+
       // Remove assistants that are no longer selected
       const assistantsToRemove = currentAssistantIds.filter(id => !assistantIds.includes(id));
       for (const assistantId of assistantsToRemove) {
         await ApiKeyService.unbindAssistantFromKey(apiKeyId, assistantId);
       }
-      
+
       // Add new assistants
       const assistantsToAdd = assistantIds.filter(id => !currentAssistantIds.includes(id));
       for (const assistantId of assistantsToAdd) {
         await ApiKeyService.bindAssistantToKey(apiKeyId, assistantId);
       }
-      
+
       return { success: true };
     },
     onSuccess: () => {
@@ -181,11 +176,11 @@ const ApiKeyDetail: React.FC = () => {
   };
 
   // Transfer list change handlers
-  const handleChange = (nextTargetKeys: string[]) => {
+  const handleChange = (nextTargetKeys: any,) => {
     setTargetKeys(nextTargetKeys);
   };
 
-  const handleSelectChange = (sourceSelectedKeys: string[], targetSelectedKeys: string[]) => {
+  const handleSelectChange = (sourceSelectedKeys: any, targetSelectedKeys: any) => {
     setSelectedKeys([...sourceSelectedKeys, ...targetSelectedKeys]);
   };
 
@@ -239,8 +234,8 @@ const ApiKeyDetail: React.FC = () => {
     <div>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
-        <Button 
-          icon={<ArrowLeftOutlined />} 
+        <Button
+          icon={<ArrowLeftOutlined />}
           onClick={() => navigate('/api-keys')}
           style={{ marginRight: 16 }}
         >
@@ -324,14 +319,14 @@ const ApiKeyDetail: React.FC = () => {
                 <Text>Assistants that can be accessed using this API key.</Text>
               </div>
               <Space>
-                <Button 
+                <Button
                   icon={<RobotOutlined />}
                   onClick={() => setIsBatchEditModalVisible(true)}
                 >
                   Batch Edit Assistants
                 </Button>
-                <Button 
-                  type="primary" 
+                <Button
+                  type="primary"
                   icon={<PlusOutlined />}
                   onClick={() => setIsAddAssistantModalVisible(true)}
                   disabled={getAvailableAssistants().length === 0}
@@ -360,9 +355,9 @@ const ApiKeyDetail: React.FC = () => {
                     This API key doesn't have access to any assistants.
                     {apiKey.can_call_assistant ? (
                       <div style={{ marginTop: 8 }}>
-                        <Button 
-                          type="primary" 
-                          size="small" 
+                        <Button
+                          type="primary"
+                          size="small"
                           icon={<PlusOutlined />}
                           onClick={() => setIsAddAssistantModalVisible(true)}
                           disabled={getAvailableAssistants().length === 0}
@@ -413,9 +408,9 @@ const ApiKeyDetail: React.FC = () => {
                     title: 'Status',
                     key: 'status',
                     render: (record: ApiKeyAssistant) => (
-                      <Badge 
-                        status={record.enabled ? 'success' : 'error'} 
-                        text={record.enabled ? 'Enabled' : 'Disabled'} 
+                      <Badge
+                        status={record.enabled ? 'success' : 'error'}
+                        text={record.enabled ? 'Enabled' : 'Disabled'}
                       />
                     ),
                   },
@@ -533,9 +528,9 @@ const ApiKeyDetail: React.FC = () => {
           <Button key="cancel" onClick={() => setIsBatchEditModalVisible(false)}>
             Cancel
           </Button>,
-          <Button 
-            key="submit" 
-            type="primary" 
+          <Button
+            key="submit"
+            type="primary"
             onClick={handleBatchEditAssistants}
             loading={batchUpdateAssistantsMutation.isPending}
           >

@@ -19,7 +19,6 @@ import {
   CheckCircleOutlined,
   UserOutlined,
   ClockCircleOutlined,
-  WarningOutlined,
   TrophyOutlined,
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
@@ -252,15 +251,14 @@ const Dashboard: React.FC = () => {
                         <Space>
                           <span>{tool.name}</span>
                           <Tag
-                            size="small"
                             color={tool.connection_type === 'stdio' ? 'blue' : tool.connection_type === 'http' ? 'green' : 'orange'}
                           >
                             {tool.connection_type}
                           </Tag>
                           {tool.enabled && !tool.disabled ? (
-                            <Tag size="small" color="green">Active</Tag>
+                            <Tag color="green">Active</Tag>
                           ) : (
-                            <Tag size="small" color="red">Inactive</Tag>
+                            <Tag color="red">Inactive</Tag>
                           )}
                         </Space>
                       }

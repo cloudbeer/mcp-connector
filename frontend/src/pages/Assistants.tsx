@@ -26,10 +26,7 @@ import {
   DeleteOutlined,
   RobotOutlined,
   ToolOutlined,
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
   InfoCircleOutlined,
-  SettingOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AssistantService } from '@/services/assistant.service';
@@ -128,7 +125,7 @@ const Assistants: React.FC = () => {
 
   const handleUpdate = (values: any) => {
     if (!editingAssistant) return;
-    
+
     updateMutation.mutate({
       id: editingAssistant.id,
       data: values,
@@ -196,8 +193,8 @@ const Assistants: React.FC = () => {
       render: (record: Assistant) => {
         if (record.type === 'dedicated') {
           return (
-            <Button 
-              size="small" 
+            <Button
+              size="small"
               icon={<ToolOutlined />}
               onClick={() => navigate(`/assistants/${record.id}`)}
             >

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Typography, Card, Space, Tag } from 'antd';
+import { Typography, Card, Space } from 'antd';
 import { UserOutlined, RobotOutlined, InfoCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';

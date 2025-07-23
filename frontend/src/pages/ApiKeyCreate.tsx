@@ -16,11 +16,11 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { ApiKeyService } from '@/services/apiKey.service';
 import ApiKeyForm from '@/components/apiKeys/ApiKeyForm';
-import type { ApiKeyCreate } from '@/types/apiKey.types';
+import type { ApiKeyCreate, ApiKeyUpdate } from '@/types/apiKey.types';
 
-const { Title, Text } = Typography;
+const { Title } = Typography;
 
-const ApiKeyCreate: React.FC = () => {
+const ApiKeyCreateComponent: React.FC = () => {
   const navigate = useNavigate();
 
   // Create API key mutation
@@ -28,7 +28,7 @@ const ApiKeyCreate: React.FC = () => {
     mutationFn: ApiKeyService.createApiKey,
     onSuccess: (response) => {
       message.success('API key created successfully!');
-      
+
       // Show the API key secret
       if (response?.data?.api_key) {
         Modal.success({
@@ -45,7 +45,7 @@ const ApiKeyCreate: React.FC = () => {
               <Button
                 type="primary"
                 onClick={() => {
-                  navigator.clipboard.writeText(response.data.api_key);
+                  navigator.clipboard.writeText(response.data?.api_key || '');
                   message.success('API key copied to clipboard!');
                 }}
               >
@@ -66,16 +66,16 @@ const ApiKeyCreate: React.FC = () => {
     },
   });
 
-  const handleCreate = (values: ApiKeyCreate) => {
-    createMutation.mutate(values);
+  const handleCreate = (values: ApiKeyCreate | ApiKeyUpdate) => {
+    createMutation.mutate(values as ApiKeyCreate);
   };
 
   return (
     <div>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
-        <Button 
-          icon={<ArrowLeftOutlined />} 
+        <Button
+          icon={<ArrowLeftOutlined />}
           onClick={() => navigate('/api-keys')}
           style={{ marginRight: 16 }}
         >
@@ -102,4 +102,4 @@ const ApiKeyCreate: React.FC = () => {
   );
 };
 
-export default ApiKeyCreate;
+export default ApiKeyCreateComponent;

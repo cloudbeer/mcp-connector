@@ -7,14 +7,12 @@ import {
   Button,
   Space,
   Tag,
-  Divider,
   Spin,
   Alert,
   Table,
   Badge,
   Tabs,
   Empty,
-  Tooltip,
   Modal,
   message,
   Row,
@@ -28,15 +26,13 @@ import {
   ArrowLeftOutlined,
   ToolOutlined,
   ApiOutlined,
-  SettingOutlined,
   CodeOutlined,
   CheckCircleOutlined,
-  CloseCircleOutlined,
   ExclamationCircleOutlined,
   ClockCircleOutlined,
   LoadingOutlined,
 } from '@ant-design/icons';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { McpToolService } from '@/services/mcpTool.service';
 import { McpServerService } from '@/services/mcpServer.service';
 import type { McpTool } from '@/types/api.types';
@@ -49,7 +45,7 @@ const McpToolDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const toolId = parseInt(id || '0', 10);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  // const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('info');
   const [isStarting, setIsStarting] = useState(false);
   const [isQueryModalVisible, setIsQueryModalVisible] = useState(false);
@@ -70,7 +66,7 @@ const McpToolDetail: React.FC = () => {
   const {
     data: statusData,
     isLoading: isStatusLoading,
-    error: statusError,
+    // error: statusError,
     refetch: refetchStatus,
   } = useQuery({
     queryKey: ['mcpServerStatus', toolId],
@@ -167,7 +163,7 @@ const McpToolDetail: React.FC = () => {
   // Query agent mutation
   const queryMutation = useMutation({
     mutationFn: (query: string) => McpServerService.queryAgent([toolId], query),
-    onSuccess: (data) => {
+    onSuccess: (_) => {
       message.success('Query executed successfully!');
       setIsQueryModalVisible(false);
       setQueryText('');
@@ -231,9 +227,9 @@ const McpToolDetail: React.FC = () => {
     );
   }
 
-  const tool: McpTool = toolData?.data;
+  const tool: McpTool = toolData?.data || {} as McpTool;
   const serverInfo: McpClientInfo | undefined = statusData?.data?.data;
-  const mcpTools = toolsData?.data?.tools || [];
+  const mcpTools = toolsData?.data?.data?.tools || [];
 
   // Get connection type color
   const getConnectionTypeColor = (type: string) => {
@@ -381,7 +377,6 @@ const McpToolDetail: React.FC = () => {
           <TabPane tab="Tool Information" key="info">
             <Descriptions bordered column={2}>
               <Descriptions.Item label="Tool ID">{tool.id}</Descriptions.Item>
-              <Descriptions.Item label="Group ID">{tool.group_id}</Descriptions.Item>
               <Descriptions.Item label="Connection Type">
                 <Tag color={getConnectionTypeColor(tool.connection_type)}>
                   {tool.connection_type.toUpperCase()}
@@ -538,7 +533,7 @@ const McpToolDetail: React.FC = () => {
                   {
                     title: 'Actions',
                     key: 'actions',
-                    render: (_, record) => (
+                    render: (_, record: any) => (
                       <Button
                         size="small"
                         icon={<CodeOutlined />}
@@ -585,12 +580,11 @@ const McpToolDetail: React.FC = () => {
         <Typography.Paragraph>
           Enter a query to test the agent with this MCP server's tools.
         </Typography.Paragraph>
-        <Typography.TextArea
-          rows={4}
-          value={queryText}
-          onChange={(e) => setQueryText(e.target.value)}
-          placeholder="Enter your query here..."
-        />
+        <Typography.Text
+          copyable
+          code
+          onChange={(e: any) => setQueryText(e.target.value)}
+        >{queryText}</Typography.Text>
       </Modal>
     </div>
   );

@@ -7,7 +7,6 @@ import {
   Button,
   Space,
   Tag,
-  Divider,
   Spin,
   Alert,
   Table,
@@ -15,13 +14,10 @@ import {
   Form,
   Select,
   InputNumber,
-  Row,
-  Col,
   Tooltip,
   Popconfirm,
   message,
   Transfer,
-  Badge,
   Empty,
 } from 'antd';
 import {
@@ -35,14 +31,12 @@ import {
   DownOutlined,
   InfoCircleOutlined,
   SyncOutlined,
-  CheckCircleOutlined,
-  CloseCircleOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { AssistantService } from '@/services/assistant.service';
 import { McpToolService } from '@/services/mcpTool.service';
 import type { AssistantWithTools, AssistantType, ToolInfo } from '@/types/assistant.types';
-import type { McpTool } from '@/types/api.types';
+// import type { McpTool } from '@/types/api.types';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -132,22 +126,22 @@ const AssistantDetail: React.FC = () => {
       // First, remove all existing tools
       const assistant = assistantData?.data;
       if (!assistant) return;
-      
+
       // Get current tools
       const currentToolIds = assistant.tools.map(tool => tool.id);
-      
+
       // Remove tools that are no longer selected
       const toolsToRemove = currentToolIds.filter(id => !toolIds.includes(id));
       for (const toolId of toolsToRemove) {
         await AssistantService.removeToolFromAssistant(assistantId, toolId);
       }
-      
+
       // Add new tools
       const toolsToAdd = toolIds.filter(id => !currentToolIds.includes(id));
       for (let i = 0; i < toolsToAdd.length; i++) {
         await AssistantService.addToolToAssistant(assistantId, toolsToAdd[i], i + 1);
       }
-      
+
       return { success: true };
     },
     onSuccess: () => {
@@ -184,7 +178,7 @@ const AssistantDetail: React.FC = () => {
     // Find the tool with the next lower priority
     const sortedTools = [...(assistant?.tools || [])].sort((a, b) => a.priority - b.priority);
     const currentIndex = sortedTools.findIndex(t => t.id === tool.id);
-    
+
     if (currentIndex > 0) {
       const newPriority = sortedTools[currentIndex - 1].priority - 1;
       updatePriorityMutation.mutate({
@@ -199,7 +193,7 @@ const AssistantDetail: React.FC = () => {
     // Find the tool with the next higher priority
     const sortedTools = [...(assistant?.tools || [])].sort((a, b) => a.priority - b.priority);
     const currentIndex = sortedTools.findIndex(t => t.id === tool.id);
-    
+
     if (currentIndex < sortedTools.length - 1) {
       const newPriority = sortedTools[currentIndex + 1].priority + 1;
       updatePriorityMutation.mutate({
@@ -216,11 +210,11 @@ const AssistantDetail: React.FC = () => {
   };
 
   // Transfer list change handlers
-  const handleChange = (nextTargetKeys: string[]) => {
+  const handleChange = (nextTargetKeys: any,) => {
     setTargetKeys(nextTargetKeys);
   };
 
-  const handleSelectChange = (sourceSelectedKeys: string[], targetSelectedKeys: string[]) => {
+  const handleSelectChange = (sourceSelectedKeys: any, targetSelectedKeys: any) => {
     setSelectedKeys([...sourceSelectedKeys, ...targetSelectedKeys]);
   };
 
@@ -289,8 +283,8 @@ const AssistantDetail: React.FC = () => {
     <div>
       {/* Header */}
       <div style={{ marginBottom: 16 }}>
-        <Button 
-          icon={<ArrowLeftOutlined />} 
+        <Button
+          icon={<ArrowLeftOutlined />}
           onClick={() => navigate('/assistants')}
           style={{ marginRight: 16 }}
         >
@@ -342,7 +336,7 @@ const AssistantDetail: React.FC = () => {
           <Descriptions.Item label="Updated At">
             {new Date(assistant.updated_at).toLocaleString()}
           </Descriptions.Item>
-          
+
           {assistant.type === 'universal' && (
             <>
               <Descriptions.Item label="Intent Model">
@@ -358,19 +352,19 @@ const AssistantDetail: React.FC = () => {
 
       {/* Tools Section */}
       {assistant.type === 'dedicated' && (
-        <Card 
+        <Card
           title={
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Associated Tools</span>
               <Space>
-                <Button 
+                <Button
                   icon={<ToolOutlined />}
                   onClick={() => setIsBatchEditModalVisible(true)}
                 >
                   Batch Edit Tools
                 </Button>
-                <Button 
-                  type="primary" 
+                <Button
+                  type="primary"
                   icon={<PlusOutlined />}
                   onClick={() => setIsAddToolModalVisible(true)}
                   disabled={getAvailableTools().length === 0}
@@ -389,9 +383,9 @@ const AssistantDetail: React.FC = () => {
                 <span>
                   This assistant doesn't have any tools associated with it yet.
                   <br />
-                  <Button 
-                    type="primary" 
-                    icon={<PlusOutlined />} 
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
                     style={{ marginTop: 16 }}
                     onClick={() => setIsAddToolModalVisible(true)}
                     disabled={getAvailableTools().length === 0}
@@ -582,9 +576,9 @@ const AssistantDetail: React.FC = () => {
           <Button key="cancel" onClick={() => setIsBatchEditModalVisible(false)}>
             Cancel
           </Button>,
-          <Button 
-            key="submit" 
-            type="primary" 
+          <Button
+            key="submit"
+            type="primary"
             onClick={handleBatchEditTools}
             loading={batchUpdateToolsMutation.isPending}
           >

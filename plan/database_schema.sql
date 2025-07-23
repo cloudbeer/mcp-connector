@@ -174,7 +174,7 @@ CREATE INDEX idx_api_key_usage_log_created_at ON api_key_usage_log(created_at);
 CREATE TRIGGER update_api_key_updated_at BEFORE UPDATE ON api_key FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- 插入示例数据
-INSERT INTO api_key (name, key_hash, key_prefix, can_manage, can_call_assistant, created_by) VALUES 
-('Admin Key', 'hash_of_admin_key_here', 'ak-admin-', true, true, 'system'),
-('Assistant Key', 'hash_of_assistant_key_here', 'ak-assist-', false, true, 'system'),
-('Read Only Key', 'hash_of_readonly_key_here', 'ak-readonly-', false, false, 'system');
+-- INSERT INTO api_key (name, key_hash, key_prefix, can_manage, can_call_assistant, created_by) VALUES 
+-- ('Admin Key', 'hash_of_admin_key_here', 'ak-admin-', true, true, 'system'),
+-- ('Assistant Key', 'hash_of_assistant_key_here', 'ak-assist-', false, true, 'system'),
+-- ('Read Only Key', 'hash_of_readonly_key_here', 'ak-readonly-', false, false, 'system');

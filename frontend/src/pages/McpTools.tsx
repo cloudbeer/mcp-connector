@@ -32,7 +32,7 @@ import {
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { McpToolService } from '@/services/mcpTool.service';
-import type { McpTool, CreateMcpToolRequest, UpdateMcpToolRequest, ServerGroup } from '@/types/api.types';
+import type { McpTool, CreateMcpToolRequest, } from '@/types/api.types';
 import { CONNECTION_TYPES, DEFAULT_TIMEOUT, DEFAULT_RETRY_COUNT, DEFAULT_RETRY_DELAY } from '@/constants';
 import BatchImportModal from '@/components/BatchImportModal';
 
@@ -48,7 +48,7 @@ const McpTools: React.FC = () => {
   const [isJsonConfigVisible, setIsJsonConfigVisible] = useState(false);
   const [editingTool, setEditingTool] = useState<McpTool | null>(null);
   const [viewingTool, setViewingTool] = useState<McpTool | null>(null);
-  const [selectedGroupId, setSelectedGroupId] = useState<number | undefined>();
+  const [selectedGroupId] = useState<number | undefined>();
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
   const queryClient = useQueryClient();
@@ -224,7 +224,7 @@ const McpTools: React.FC = () => {
     deleteMutation.mutate(id);
   };
 
-  const handleBatchImport = async (data: { mcpServers: any; group_id: number }) => {
+  const handleBatchImport = async (data: { mcpServers: any }) => {
     return batchImportMutation.mutateAsync(data);
   };
 
@@ -328,17 +328,17 @@ const McpTools: React.FC = () => {
         <Space size="small">
           {record.connection_type === 'stdio' && record.command && (
             <Tooltip title={`Command: ${record.command}`}>
-              <Tag size="small">CMD</Tag>
+              <Tag>CMD</Tag>
             </Tooltip>
           )}
           {(record.connection_type === 'http' || record.connection_type === 'sse') && record.url && (
             <Tooltip title={`URL: ${record.url}`}>
-              <Tag size="small">URL</Tag>
+              <Tag>URL</Tag>
             </Tooltip>
           )}
           {record.env && Object.keys(record.env).length > 0 && (
             <Tooltip title={`Environment variables: ${Object.keys(record.env).length}`}>
-              <Tag size="small">ENV</Tag>
+              <Tag>ENV</Tag>
             </Tooltip>
           )}
         </Space>

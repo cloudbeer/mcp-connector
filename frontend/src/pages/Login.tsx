@@ -108,13 +108,7 @@ const Login: React.FC = () => {
             </Form.Item>
           </Form>
 
-          <div style={{ textAlign: 'left', width: '100%' }}>
-            <Text type="secondary" style={{ fontSize: '12px' }}>
-              <strong>Sample API Keys:</strong><br />
-              • Admin: ak-130984-tdU8Rs604uqVmx-N-c2A3A<br />
-              • Assistant: ak-130984-5_oHlqm-iyeZFPFPEiWlZQ
-            </Text>
-          </div>
+
         </Space>
       </Card>
     </div>

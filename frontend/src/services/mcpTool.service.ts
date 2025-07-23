@@ -4,9 +4,6 @@ import type {
   McpTool,
   CreateMcpToolRequest,
   UpdateMcpToolRequest,
-  ServerGroup,
-  CreateServerGroupRequest,
-  UpdateServerGroupRequest,
 } from '@/types/api.types';
 
 export class McpToolService {
@@ -45,7 +42,7 @@ export class McpToolService {
   }
 
   // Batch import tools
-  static async batchImportTools(data: { mcpServers: any; group_id: number }): Promise<ApiResponse> {
+  static async batchImportTools(data: { mcpServers: any; }): Promise<ApiResponse> {
     return apiService.post('/api/v1/tools/batch-import', data);
   }
 

@@ -20,6 +20,7 @@
         "@types/node": "^24.0.12",
         "@types/react": "^19.1.8",
         "@types/react-dom": "^19.1.6",
+        "@types/react-syntax-highlighter": "^15.5.13",
         "@vitejs/plugin-react": "^4.6.0",
         "eslint": "^9.30.1",
         "eslint-config-prettier": "^10.1.5",
@@ -282,6 +283,8 @@
     "@types/react": ["@types/react@19.1.8", "", { "dependencies": { "csstype": "^3.0.2" } }, "sha512-AwAfQ2Wa5bCx9WP8nZL2uMZWod7J7/JSplxbTmBQ5ms6QpqNYm672H0Vu9ZVKVngQ+ii4R/byguVEUZQyeg44g=="],
 
     "@types/react-dom": ["@types/react-dom@19.1.6", "", { "peerDependencies": { "@types/react": "^19.0.0" } }, "sha512-4hOiT/dwO8Ko0gV1m/TJZYk3y0KBnY9vzDh7W+DH17b2HFSOGgdj33dhihPeuy3l0q23+4e+hoXHV6hCC4dCXw=="],
+
+    "@types/react-syntax-highlighter": ["@types/react-syntax-highlighter@15.5.13", "", { "dependencies": { "@types/react": "*" } }, "sha512-uLGJ87j6Sz8UaBAooU0T6lWJ0dBmjZgN1PZTrj05TNql2/XpC6+4HhMT5syIdFUUt+FASfCeLLv4kBygNU+8qA=="],
 
     "@types/unist": ["@types/unist@3.0.3", "", {}, "sha512-ko/gIFJRv177XgZsZcBwnqJN5x/Gien8qNOn0D5bQU/zAzVf9Zt3BlcUiLqhV9y4ARk0GbT3tnUiPNgnTXzc/Q=="],
 

@@ -2,7 +2,6 @@ import { apiService } from '../api.service';
 import { API_BASE_URL } from '@/constants';
 import type { ApiResponse } from '@/types/api.types';
 import type {
-    ChatCompletionRequest,
     ChatCompletionResponse,
     ChatCompletionMessage
 } from '@/types/chat';

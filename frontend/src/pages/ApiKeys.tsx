@@ -21,7 +21,6 @@ import {
   EyeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
-  InfoCircleOutlined,
   RobotOutlined,
 } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -39,7 +38,7 @@ const ApiKeys: React.FC = () => {
   const {
     data: apiKeysData,
     isLoading,
-    error,
+    // error,
   } = useQuery({
     queryKey: ['apiKeys', includeDisabled],
     queryFn: () => ApiKeyService.listApiKeys(includeDisabled),
@@ -116,9 +115,9 @@ const ApiKeys: React.FC = () => {
       title: 'Status',
       key: 'status',
       render: (record: ApiKey) => (
-        <Badge 
-          status={record.is_disabled ? 'error' : 'success'} 
-          text={record.is_disabled ? 'Disabled' : 'Active'} 
+        <Badge
+          status={record.is_disabled ? 'error' : 'success'}
+          text={record.is_disabled ? 'Disabled' : 'Active'}
         />
       ),
     },

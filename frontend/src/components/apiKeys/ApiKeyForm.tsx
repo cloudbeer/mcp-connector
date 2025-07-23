@@ -9,14 +9,13 @@ import {
   Divider,
   Select,
   Alert,
-  Typography,
+  // Typography,
 } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { AssistantService } from '@/services/assistant.service';
 import type { ApiKey, ApiKeyCreate, ApiKeyUpdate } from '@/types/apiKey.types';
 import dayjs from 'dayjs';
 
-const { Text } = Typography;
 const { Option } = Select;
 
 interface ApiKeyFormProps {
