@@ -30,7 +30,7 @@ export class ChatService {
                 payload.temperature = temperature;
             }
 
-            return await apiService.post('/chat/completions', payload);
+            return await apiService.post('/api/v1/chat/completions', payload);
         } catch (error: unknown) {
             console.error('Error sending message to assistant:', error);
 
@@ -86,7 +86,7 @@ export class ChatService {
                 }
 
                 // Make the streaming request
-                const response = await fetch(`${API_BASE_URL}/chat/completions`, {
+                const response = await fetch(`${API_BASE_URL}/api/v1/chat/completions`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

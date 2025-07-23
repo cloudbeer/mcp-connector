@@ -103,7 +103,7 @@ app.include_router(assistants.router, prefix="/api/v1", tags=["assistants"])
 
 # Import and include OpenAI compatible API router
 from app.api.v1 import openai_compatible
-app.include_router(openai_compatible.router, tags=["openai-compatible"])
+app.include_router(openai_compatible.router, prefix="/api/v1", tags=["openai-compatible"])
 
 # Import and include sessions router
 from app.api.v1 import sessions
