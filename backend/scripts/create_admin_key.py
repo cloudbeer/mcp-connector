@@ -29,7 +29,7 @@ async def create_admin_key():
     key_hash = hashlib.sha256(api_key.encode()).hexdigest()
     
     # 创建前缀（用于显示）- 确保不超过20个字符
-    key_prefix = f"ak-{timestamp[:6]}-{random_part[:8]}..."
+    key_prefix = f"ak-{timestamp[:6]}-{random_part[:4]}..."
     
     # 插入数据库
     query = """
