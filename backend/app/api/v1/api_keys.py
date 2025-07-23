@@ -341,7 +341,6 @@ async def get_key_usage_logs(
 @router.get("/my-key")
 async def get_my_key_info(current_key: dict = Depends(get_current_api_key)):
     """Get information about the current API key."""
-    print(current_key)
     return {
         "success": True,
         "message": "Current API key information",
