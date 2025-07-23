@@ -146,7 +146,7 @@ const McpTools: React.FC = () => {
       name: tool.name,
       description: tool.description,
       connection_type: tool.connection_type,
-      group_id: tool.group_id,
+      // group_id: tool.group_id,
       command: tool.command,
       args: tool.args?.join(' '), // Convert array to string for display
       env: Object.entries(tool.env || {}).map(([key, value]) => ({ key, value })),
@@ -169,7 +169,7 @@ const McpTools: React.FC = () => {
       name: values.name,
       description: values.description,
       connection_type: values.connection_type,
-      group_id: values.group_id,
+      // group_id: values.group_id,
       timeout: values.timeout,
       retry_count: values.retry_count,
       retry_delay: values.retry_delay,
@@ -551,7 +551,7 @@ const McpTools: React.FC = () => {
 // Create Tool Form Component
 interface CreateToolFormProps {
   form: any;
-  groups: ServerGroup[];
+  // groups: ServerGroup[];
   onFinish: (values: CreateMcpToolRequest) => void;
   onCancel: () => void;
   loading: boolean;
