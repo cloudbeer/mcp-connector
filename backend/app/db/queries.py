@@ -104,7 +104,7 @@ class MCPToolQueries:
     async def get_tool_by_id(tool_id: int) -> Optional[Dict[str, Any]]:
         """Get MCP tool by ID with its groups."""
         query = """
-            SELECT t.*,
+            SELECT t.*
             FROM mcp_tool t
             WHERE t.id = $1
         """

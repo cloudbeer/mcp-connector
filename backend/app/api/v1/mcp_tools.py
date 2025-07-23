@@ -258,15 +258,7 @@ async def list_mcp_tools(
 ):
     """List MCP tools."""
     try:
-        if group_id:
-            if enabled_only:
-                tools = await MCPToolQueries.get_tools_by_group(group_id)
-            else:
-                # Get all tools in group (including disabled)
-                tools = await MCPToolQueries.list_all_tools(enabled_only=False)
-                tools = [tool for tool in tools if tool["group_id"] == group_id]
-        else:
-            tools = await MCPToolQueries.list_all_tools(enabled_only=enabled_only)
+        tools = await MCPToolQueries.list_all_tools(enabled_only=enabled_only)
         
         return MCPToolListResponse(
             success=True,
@@ -315,13 +307,7 @@ async def update_mcp_tool(
         if not existing_tool:
             raise HTTPException(status_code=404, detail="MCP tool not found")
         
-        # Validate server groups if provided
-        if tool_data.group_ids is not None:
-            for group_id in tool_data.group_ids:
-                group = await ServerGroupQueries.get_group_by_id(group_id)
-                if not group:
-                    raise HTTPException(status_code=404, detail=f"Server group {group_id} not found")
-        
+     
         # Update the tool
         updated_tool = await MCPToolQueries.update_tool(
             tool_id=tool_id,

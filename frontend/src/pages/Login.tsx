@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Input, Button, Typography, Space, message } from 'antd';
-import { KeyOutlined, LoginOutlined } from '@ant-design/icons';
+import { Card, Form, Input, Button, Typography, Space, message, Checkbox } from 'antd';
+import { KeyOutlined, LoginOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { ApiKeyService } from '@/services/apiKey.service';
 import { apiService } from '@/services/api.service';
-import { APP_TITLE } from '@/constants';
+import { APP_TITLE, STORAGE_KEYS } from '@/constants';
 
 const { Title, Text } = Typography;
 
@@ -21,11 +21,22 @@ const Login: React.FC = () => {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
-  const onFinish = async (values: { apiKey: string }) => {
+  const onFinish = async (values: { apiKey: string; rememberKey: boolean }) => {
     setLoading(true);
     
     try {
-      // Temporarily set the API key to test it
+      // Set the API key based on remember preference
+      if (values.rememberKey) {
+        // Store in localStorage for permanent storage
+        localStorage.setItem(STORAGE_KEYS.API_KEY, values.apiKey);
+      } else {
+        // Store in sessionStorage for session-only storage
+        sessionStorage.setItem(STORAGE_KEYS.API_KEY, values.apiKey);
+        // Make sure it's not in localStorage
+        localStorage.removeItem(STORAGE_KEYS.API_KEY);
+      }
+      
+      // Set the API key for current use
       apiService.setApiKey(values.apiKey);
       
       // Try to fetch current key info to validate
@@ -34,7 +45,10 @@ const Login: React.FC = () => {
       
       // If successful, login and navigate
       login(values.apiKey);
-      message.success('Login successful!');
+      
+      const storageType = values.rememberKey ? 'permanently' : 'for this session';
+      message.success(`Login successful! Your API key has been saved ${storageType}.`);
+      
       navigate('/dashboard');
     } catch (error) {
       console.error('Login validation failed:', error);
@@ -87,12 +101,24 @@ const Login: React.FC = () => {
                 { required: true, message: 'Please enter your API key!' },
                 { min: 10, message: 'API key must be at least 10 characters long!' },
               ]}
+              tooltip={{
+                title: 'Your API key will be securely stored in this browser for future logins',
+                icon: <InfoCircleOutlined />,
+              }}
             >
               <Input.Password
                 prefix={<KeyOutlined />}
                 placeholder="Enter your API key"
                 autoComplete="off"
               />
+            </Form.Item>
+
+            <Form.Item 
+              name="rememberKey" 
+              valuePropName="checked"
+              initialValue={true}
+            >
+              <Checkbox>Remember API key in this browser</Checkbox>
             </Form.Item>
 
             <Form.Item style={{ marginBottom: 0 }}>

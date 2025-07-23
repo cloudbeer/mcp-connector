@@ -94,17 +94,26 @@ class ApiService {
 
   // Set API key
   setApiKey(apiKey: string) {
-    localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
+    try {
+      localStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
+    } catch (error) {
+      console.error('Failed to save API key to localStorage:', error);
+      // Fallback to session storage if localStorage fails
+      sessionStorage.setItem(STORAGE_KEYS.API_KEY, apiKey);
+    }
   }
 
   // Remove API key
   removeApiKey() {
     localStorage.removeItem(STORAGE_KEYS.API_KEY);
+    sessionStorage.removeItem(STORAGE_KEYS.API_KEY);
   }
 
   // Get current API key
   getApiKey(): string | null {
-    return localStorage.getItem(STORAGE_KEYS.API_KEY);
+    // Try localStorage first, then sessionStorage as fallback
+    return localStorage.getItem(STORAGE_KEYS.API_KEY) || 
+           sessionStorage.getItem(STORAGE_KEYS.API_KEY);
   }
 }
 
