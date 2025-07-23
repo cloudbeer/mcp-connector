@@ -86,10 +86,10 @@ async def verify_setup():
         logger.info(f"Created tables: {table_names}")
         
         # Check sample data
-        groups_count = await conn.fetchval("SELECT COUNT(*) FROM server_group")
         assistants_count = await conn.fetchval("SELECT COUNT(*) FROM assistant")
+        api_keys_count = await conn.fetchval("SELECT COUNT(*) FROM api_key")
         
-        logger.info(f"Sample data - Groups: {groups_count}, Assistants: {assistants_count}")
+        logger.info(f"Sample data - Assistants: {assistants_count}, API Keys: {api_keys_count}")
         
         await conn.close()
         
